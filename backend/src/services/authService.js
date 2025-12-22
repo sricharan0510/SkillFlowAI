@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-
 const User = require('../models/userModel');
 const EmailOtp = require('../models/emailOtpModel');
 const PasswordResetToken = require('../models/passwordResetTokenModel');
@@ -122,13 +121,21 @@ async function loginUser({ email, password, userAgent, ipAddress }) {
 
 // ------------------ REFRESH TOKEN ------------------ 
 async function refreshTokens({ refreshToken }) {
-  const decoded = require('jsonwebtoken').verify(
+  const jwt = require('jsonwebtoken');
+
+  const decoded = jwt.verify(
     refreshToken,
     process.env.JWT_REFRESH_SECRET
   );
 
+  const userId = decoded.id;
+
+  if (!userId) {
+    throw new Error('Invalid refresh token payload');
+  }
+
   const tokenDocs = await RefreshToken.find({
-    userId: decoded.sub,
+    userId,
     revoked: false,
     expiresAt: { $gt: new Date() },
   });
@@ -144,13 +151,14 @@ async function refreshTokens({ refreshToken }) {
 
   if (!matchedToken) throw new Error('Invalid refresh token');
 
-  const user = await User.findById(decoded.sub);
+  const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
   const newAccessToken = generateAccessToken(user);
 
   return { accessToken: newAccessToken };
 }
+
 
 // ------------------ FORGOT PASSWORD ------------------ 
 async function createPasswordResetToken(email) {

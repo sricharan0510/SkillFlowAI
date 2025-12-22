@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 
+
 // ------------------ AUTHENTICATE USER ------------------
 const authenticate = (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
   try {
     const authHeader = req.headers.authorization;
 
@@ -13,8 +17,12 @@ const authenticate = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
+    if (!decoded.id) {
+      return res.status(401).json({ message: 'Invalid token payload' });
+    }
+
     req.user = {
-      id: decoded.sub,
+      id: decoded.id,
       email: decoded.email,
       fullName: decoded.fullName,
       role: decoded.role,

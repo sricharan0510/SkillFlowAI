@@ -30,6 +30,15 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
+  // keep accessToken in localStorage so axios interceptor can read it
+  useEffect(() => {
+    if (accessToken) {
+      localStorage.setItem('accessToken', accessToken);
+    } else {
+      localStorage.removeItem('accessToken');
+    }
+  }, [accessToken]);
+
   const logout = async () => {
     try {
       if (accessToken) {

@@ -1,4 +1,5 @@
 const Material = require("../models/materialModel");
+const User = require("../models/userModel");
 const uploadPdfToCloudinary = require("../utils/uploadPdf");
 const { extractTextFromPDF } = require("../utils/pdfExtractor");
 
@@ -12,7 +13,12 @@ exports.uploadMaterial = async (req, res) => {
       return res.status(400).json({ message: "Title is required" });
     }
 
-    const user = req.user;
+    // load the full user document from DB (req.user is JWT payload)
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     if (!user.credits || user.credits.pdfUploadsRemaining <= 0) {
       return res.status(403).json({
@@ -20,7 +26,9 @@ exports.uploadMaterial = async (req, res) => {
       });
     }
 
+    // upload to Cloudinary
     const cloudinaryResult = await uploadPdfToCloudinary(req.file.buffer);
+    console.log("Cloudinary upload result:", cloudinaryResult);
 
     const { text, pages } = await extractTextFromPDF(req.file.buffer);
 
