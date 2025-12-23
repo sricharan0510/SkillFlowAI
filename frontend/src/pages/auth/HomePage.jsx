@@ -240,14 +240,14 @@ function HomePage() {
                             >
                                 How it works
                             </motion.a>
-                            <motion.a
+                            {/* <motion.a
                                 href="#pricing"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.95 }}
                             >
                                 Pricing
-                            </motion.a>
+                            </motion.a> */}
                             <motion.a
                                 href="#reviews"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -394,12 +394,12 @@ function HomePage() {
                                     >
                                         How it works
                                     </motion.a>
-                                    <motion.a
+                                    {/* <motion.a
                                         href="#pricing"
                                         variants={itemVariants}
                                     >
                                         Pricing
-                                    </motion.a>
+                                    </motion.a> */}
                                     <motion.a
                                         href="#reviews"
                                         className="block px-3 py-2 text-muted-foreground hover:text-foreground"
@@ -751,7 +751,7 @@ function HomePage() {
             </section>
 
             {/* Pricing Section */}
-            <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8">
+            {/* <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <motion.div
                         className="text-center mb-16"
@@ -781,7 +781,6 @@ function HomePage() {
                     </motion.div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        {/* Free Tier Card */}
                         <motion.div
                             className="bg-card p-8 rounded-xl border-2 border-border/50 transition-all duration-300 hover:shadow-primary/20 hover:shadow-2xl"
                             initial={{ opacity: 0, scale: 0.9 }}
@@ -818,7 +817,6 @@ function HomePage() {
                             </ul>
                         </motion.div>
 
-                        {/* Premium Tier Card */}
                         <motion.div
                             className="bg-card p-8 rounded-xl border-2 border-primary transition-all duration-300 shadow-xl shadow-primary/20"
                             initial={{ opacity: 0, scale: 0.9 }}
@@ -859,7 +857,7 @@ function HomePage() {
                         </motion.div>
                     </div>
                 </div>
-            </section>
+            </section> */}
 
             {/* Testimonials Section */}
             <section id="reviews" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
