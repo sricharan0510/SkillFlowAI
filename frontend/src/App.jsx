@@ -12,7 +12,11 @@ import DashboardHome from './pages/dashboard/DashboardHome.jsx'
 import UploadMaterial from './pages/dashboard/UploadMaterial.jsx'
 import MyLibrary from './pages/dashboard/MyLibrary.jsx'
 import Exams from './pages/dashboard/Exams.jsx'
+
 import SmartNotes from './pages/dashboard/SmartNotes.jsx'
+import AllNotes from './pages/dashboard/AllNotes.jsx'
+import NoteDetail from './pages/dashboard/NoteDetail.jsx'
+
 import MockInterviews from './pages/dashboard/MockInterviews.jsx'
 import Performance from './pages/dashboard/Performance.jsx'
 import Settings from './pages/dashboard/Settings.jsx'
@@ -36,8 +40,12 @@ function App() {
 
             <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/dashboard/library" element={<MyLibrary />} />
-            <Route path="/dashboard/exams" element={<Exams />} />
+
             <Route path="/dashboard/summaries" element={<SmartNotes />} />
+            <Route path="/dashboard/summaries/all" element={<AllNotes />} />
+            <Route path="/dashboard/summaries/:id" element={<NoteDetail />} />
+
+            <Route path="/dashboard/exams" element={<Exams />} />
             <Route path="/dashboard/interviews" element={<MockInterviews />} />
             <Route path="/dashboard/performance" element={<Performance />} />
             <Route path="/dashboard/settings" element={<Settings />} />

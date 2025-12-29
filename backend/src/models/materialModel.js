@@ -13,6 +13,12 @@ const MaterialSchema = new mongoose.Schema(
       required: true,
     },
 
+    category: {
+      type: String,
+      enum: ["exams", "resume", "notes"], 
+      required: true
+    },
+
     fileUrl: {
       type: String,
       required: true,
@@ -32,6 +38,11 @@ const MaterialSchema = new mongoose.Schema(
       type: String,
       enum: ["processing", "completed", "failed"],
       default: "processing",
+    },
+    
+    summary: {
+      type: String,
+      default: null, 
     },
   },
   { timestamps: true }

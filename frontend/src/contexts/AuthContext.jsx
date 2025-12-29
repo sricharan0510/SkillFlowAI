@@ -18,8 +18,6 @@ export const AuthProvider = ({ children }) => {
 
         const me = await getMe(res.data.accessToken);
         setUser(me.data.user);
-        console.log("ME RESPONSE:", me.data);
-        console.log("USER SET:", me.data.user);
       } catch {
         setUser(null);
         setAccessToken(null);
