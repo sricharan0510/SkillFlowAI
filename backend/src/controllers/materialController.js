@@ -83,10 +83,9 @@ exports.generateMaterialSummary = async (req, res) => {
     console.log(`Generating summary... Mode: ${mode}, Topic: ${topic}`);
     const aiResponse = await generateSummaryAI(material.extractedText, mode, topic);
     
-    if (mode === "entire") {
-      material.summary = aiResponse;
-      await material.save();
-    }
+    // Save the generated summary to the material for both entire and specific modes
+    material.summary = aiResponse;
+    await material.save();
 
     return res.status(200).json({
       message: "Success",

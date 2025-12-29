@@ -13,7 +13,7 @@ export const uploadMaterial = async (formData) => {
   }
 };
 
-export const getMaterials = async (category = "note") => {
+export const getMaterials = async (category = "notes") => {
   try {
     const response = await api.get(`/materials?category=${category}`);
     return response.data;

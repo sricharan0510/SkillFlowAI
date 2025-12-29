@@ -22,7 +22,7 @@ export default function AllNotes() {
 
         async function fetchNotes() {
             try {
-                const data = await getMaterials("note"); 
+                    const data = await getMaterials("notes");
                 setNotes(data.materials || []);
             } catch (error) {
                 console.error("Failed to load notes", error);

@@ -4,39 +4,40 @@ import DashboardLayout from "../../components/interactive/DashboardLayout";
 import { UploadCloud, Layers, CheckCircle2, Loader2, FileText, AlertCircle, Search } from "lucide-react";
 import { uploadMaterial, generateSummary, getMaterials } from "../../services/materialApi";
 import { useAuth } from "../../contexts/AuthContext";
-import ReactMarkdown from "react-markdown"; 
-import { jsPDF } from "jspdf";
 
 export default function SmartNotes() {
+  // Form State
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState("entire"); 
   const [topic, setTopic] = useState("");
   
+  // UI State
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("idle"); 
   const [error, setError] = useState("");
-  const [generatedContent, setGeneratedContent] = useState(null);
   
+  // History State
   const [recentNotes, setRecentNotes] = useState([]);
   const [sidebarSearch, setSidebarSearch] = useState("");
   
   const navigate = useNavigate();
-    const { accessToken, loading: authLoading } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
 
-    useEffect(() => {
-        if (authLoading) return;
-        if (!accessToken) {
-            navigate('/signin');
-            return;
-        }
-        fetchHistory();
-    }, [authLoading, accessToken]); 
+  // 1. FETCH HISTORY ON MOUNT
+  useEffect(() => {
+    if (authLoading) return;
+    if (!accessToken) {
+        navigate('/signin');
+        return;
+    }  
+    fetchHistory();
+  }, [authLoading, accessToken]); 
 
   const fetchHistory = async () => {
-    try {
-      const data = await getMaterials("note"); 
-      
+        try {
+            // Use backend category "notes"
+            const data = await getMaterials("notes"); 
       if (data && Array.isArray(data.materials)) {
         setRecentNotes(data.materials);
       } else {
@@ -46,6 +47,8 @@ export default function SmartNotes() {
       console.error("Failed to load history:", err);
     }
   };
+
+  // 2. HANDLERS
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
@@ -73,48 +76,40 @@ export default function SmartNotes() {
       setLoading(true);
       setError("");
 
+      // STEP A: Upload
       setStep("uploading");
       const formData = new FormData();
       formData.append("pdf", file);
       formData.append("title", title);
-      
-      formData.append("category", "note"); 
+    formData.append("category", "notes"); 
 
       const uploadRes = await uploadMaterial(formData);
       const materialId = uploadRes.material._id;
 
+      // STEP B: Generate
       setStep("generating");
-      const summaryRes = await generateSummary(materialId, mode, topic);
+      await generateSummary(materialId, mode, topic);
 
-      setGeneratedContent(summaryRes.summary);
+      // STEP C: Success & Redirect
       setStep("done");
       
-      fetchHistory(); 
+      // Update history in background (optional, as we are leaving the page)
+      await fetchHistory(); 
 
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Something went wrong.");
-      setStep("idle");
+      // Redirect immediately to the Note Detail Page
+      navigate(`/dashboard/summaries/${materialId}`);
+
+        } catch (err) {
+            console.error(err);
+            const message = err?.message || err?.error || (typeof err === 'string' ? err : JSON.stringify(err));
+            setError(message || "Something went wrong.");
+            setStep("idle");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadPDF = () => {
-    if (!generatedContent) return;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text(title || "Smart Note", 10, 20);
-    
-    doc.setFontSize(11);
-    const cleanText = generatedContent.replace(/[#*`]/g, ''); 
-    const splitText = doc.splitTextToSize(cleanText, 180);
-    doc.text(splitText, 10, 30);
-    
-    doc.save(`${title || "Note"}_Summary.pdf`);
-  };
-
+  // Filter logic for sidebar
   const filteredHistory = recentNotes.filter(n => 
     n.title.toLowerCase().includes(sidebarSearch.toLowerCase())
   );
@@ -123,10 +118,9 @@ export default function SmartNotes() {
     <DashboardLayout>
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
         
-        {/* LEFT COLUMN: Input & Results */}
+        {/* LEFT COLUMN: Input Form */}
         <div className="lg:col-span-2 space-y-6">
             
-            {/* Input Form */}
             <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
                 <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
                     <Layers className="h-6 w-6 text-foreground" />
@@ -231,22 +225,6 @@ export default function SmartNotes() {
                     )}
                 </button>
             </div>
-
-            {/* Results Display */}
-            {generatedContent && (
-                <div className="bg-card border border-border rounded-xl p-8 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-                    <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
-                        <h2 className="text-xl font-bold">AI Generated Notes</h2>
-                        <button onClick={handleDownloadPDF} className="text-sm text-primary hover:underline font-semibold flex items-center gap-1">
-                           Download PDF
-                        </button>
-                    </div>
-                    
-                    <div className="prose dark:prose-invert max-w-none text-sm text-muted-foreground leading-relaxed">
-                        <ReactMarkdown>{generatedContent}</ReactMarkdown>
-                    </div>
-                </div>
-            )}
         </div>
 
         {/* RIGHT COLUMN: Sidebar History */}
