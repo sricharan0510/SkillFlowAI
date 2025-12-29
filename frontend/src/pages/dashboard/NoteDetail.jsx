@@ -104,14 +104,13 @@ export default function NoteDetail() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto pb-10">
-
         <div className="sticky top-16 z-30 bg-card/80 backdrop-blur-sm py-4 px-2 rounded-md">
           <div className="max-w-6xl mx-auto">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition mb-2">
                   <ArrowLeft className="h-4 w-4" /> Back
                 </button>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-2xl md:text-3xl font-bold truncate max-w-[60vw]">{note.title}</h1>
               </div>
 
@@ -129,7 +128,7 @@ export default function NoteDetail() {
           </div>
         </div>
 
-        <div className="mt-6 max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm min-h-[480px]">
             <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed">
               <ReactMarkdown>{note.summary}</ReactMarkdown>

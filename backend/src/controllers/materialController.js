@@ -98,3 +98,20 @@ exports.generateMaterialSummary = async (req, res) => {
     return res.status(500).json({ message: "Failed to generate summary" });
   }
 };
+
+exports.deleteMaterial = async (req, res) => {
+  try {
+    const { materialId } = req.params;
+    const material = await Material.findOne({ _id: materialId, userId: req.user.id });
+    if (!material) {
+      return res.status(404).json({ message: "Material not found" });
+    }
+
+    await Material.deleteOne({ _id: materialId });
+
+    return res.status(200).json({ message: "Material deleted successfully" });
+  } catch (error) {
+    console.error("Delete material error:", error);
+    return res.status(500).json({ message: "Failed to delete material" });
+  }
+};

@@ -24,4 +24,7 @@ router.get(
     getMaterials
 );
 
+const { deleteMaterial } = require("../controllers/materialController");
+router.delete("/:materialId", authMiddleware, deleteMaterial);
+
 module.exports = router;

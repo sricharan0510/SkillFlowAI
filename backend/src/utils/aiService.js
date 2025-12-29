@@ -15,43 +15,58 @@ exports.generateSummaryAI = async (text, mode = "entire", topic = "") => {
 
   if (mode === "specific" && topic) {
     prompt = `
-        You are an expert personal tutor. Your goal is to explain complex topics in the simplest, most "student-friendly" way possible.
+        Task: Extract and summarize information strictly related to the topic: "${topic}" from the source text.
         
-        Analyze the provided text and focus ONLY on the topic: "${topic}".
+        STRICT OUTPUT RULES:
+        1. NO conversational filler (e.g., "Here is the summary", "Let's dive in", "Imagine").
+        2. Start immediately with the topic heading.
+        3. Keep definitions to 1-2 simple sentences.
+        4. Use code blocks for any syntax or formulas.
 
-        Instructions:
-        1. **Explain Like I'm a Student:** Provide a clear, easy-to-understand explanation of "${topic}". Avoid overly dense jargon where simple words work.
-        2. **Key Takeaways:** List the most important points using bullet points.
-        3. **Real-World Example:** If applicable, give 1 short analogy or example to help understanding.
-        4. **Formulas/Data:** Extract any specific formulas, dates, or technical specs related to this topic.
-        5. **Format:** Use Markdown. Use ## for headings and * for bullets. Keep paragraphs short.
+        REQUIRED OUTPUT FORMAT:
+        ## ${topic}
+        **Definition:** [Concise definition]
+
+        ### Key Points
+        * [Point 1 - bold key terms]
+        * [Point 2]
+        * [Point 3]
+
+        ### Syntax / Example
+        \`\`\`sql
+        [Provide a code snippet or formula if present in text]
+        \`\`\`
+
+        ### Important Note
+        > [One critical takeaway or warning if applicable]
 
         Source Text:
         "${text}"
       `;
   } else {
     prompt = `
-        You are an expert exam preparation coach.
-        Convert the provided text into "Smart Notes" and "Short Notes" that are easy to study and memorize.
+        Task: Convert the source text into a high-density "Exam Cheat Sheet".
+        
+        STRICT OUTPUT RULES:
+        1. NO intro/outro text (e.g., "I have summarized the document"). Start directly with Section 1.
+        2. NO long paragraphs. Use bullet points for 95% of the content.
+        3. Prioritize definitions, differences, and syntax over theoretical explanations.
 
-        Instructions:.
+        REQUIRED OUTPUT FORMAT:
 
-        SECTION : SMART NOTES (Core Concepts)
-        - Group the content by key themes or chapters.
-        - DO NOT use long paragraphs. Use **bullet points** for everything.
-        - Bold key terms and defination headings.
-        - Explain *why* a concept matters, not just what it is.
+        # Core Concepts
+        [Group by theme/chapter. Use sub-bullets.]
+        * **[Concept A]**: [Definition/Explanation]
+        * **[Concept B]**: [Definition/Explanation]
 
-        SECTION : SHORT NOTES / CHEAT SHEET
-        - Extract the "must-know" facts for an exam.
-        - Create a distinct list:
-          * Definitions (1-line max).
-          * Important numbers (e.g., Port numbers, Dates).
-          * Comparisons (e.g., TCP vs UDP).
-          * Formulas.
+        # Fast Facts & Formulas
+        [Extract list of dates, commands, formulas, or specific rules]
+        * **[Term]**: [Fact]
+        * **[Term]**: [Fact]
 
-        SECTION : MNEMONICS OR TIPS (Optional)
-        - If there are hard lists to remember, suggest a mnemonic or a study tip.
+        # Comparisons (If applicable)
+        [Create a simple comparison list, e.g., TCP vs UDP, Inner vs Outer Join]
+        * **[Item A]**: [Trait] vs **[Item B]**: [Trait]
 
         Source Text:
         "${text}"

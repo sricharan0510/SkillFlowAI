@@ -31,3 +31,12 @@ export const generateSummary = async (materialId, mode, topic = "") => {
     throw error.response?.data || { message: "Generation failed" };
   }
 };
+
+export const deleteMaterial = async (materialId) => {
+  try {
+    const response = await api.delete(`/materials/${materialId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: "Delete failed" };
+  }
+};
