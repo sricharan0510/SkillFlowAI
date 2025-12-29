@@ -4,17 +4,25 @@ import { Search, FileText, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import { getMaterials } from "../../services/materialApi";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from 'lucide-react'
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function AllNotes() {
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const navigate = useNavigate();
+    const { accessToken, loading: authLoading } = useAuth();
 
     useEffect(() => {
+        if (authLoading) return;
+        if (!accessToken) {
+            navigate('/signin');
+            return;
+        }
+
         async function fetchNotes() {
             try {
-                const data = await getMaterials("note"); // Ensure category matches your DB enum ('note' vs 'notes')
+                const data = await getMaterials("note"); 
                 setNotes(data.materials || []);
             } catch (error) {
                 console.error("Failed to load notes", error);
@@ -23,7 +31,7 @@ export default function AllNotes() {
             }
         }
         fetchNotes();
-    }, []);
+    }, [authLoading, accessToken]);
 
     const filteredNotes = notes.filter(note =>
         note.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -107,7 +115,7 @@ export default function AllNotes() {
                                 ) : (
                                     <tr>
                                         <td colSpan="4" className="text-center py-12 text-muted-foreground">
-                                            No notes found matching "{searchTerm}"
+                                            No notes found
                                         </td>
                                     </tr>
                                 )}

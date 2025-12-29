@@ -5,10 +5,12 @@ import { ArrowLeft, Download, Calendar, FileText, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { jsPDF } from "jspdf";
 import api from "../../services/axios"; 
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function NoteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { accessToken, loading: authLoading } = useAuth();
   const [note, setNote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,9 +38,15 @@ export default function NoteDetail() {
         setLoading(false);
       }
     }
-    
+
+    if (authLoading) return;
+    if (!accessToken) {
+      navigate('/signin');
+      return;
+    }
+
     if (id) fetchNote();
-  }, [id]);
+  }, [id, authLoading, accessToken]);
 
   const handleDownloadPDF = () => {
     if (!note || !note.summary) return;
@@ -95,28 +103,38 @@ export default function NoteDetail() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6 pb-10">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition">
-            <ArrowLeft className="h-4 w-4" /> Back to Library
-        </button>
+      <div className="max-w-6xl mx-auto pb-10">
 
-        <div className="flex justify-between items-start">
-            <div>
-                <h1 className="text-3xl font-bold mb-2">{note.title}</h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> {new Date(note.createdAt).toLocaleDateString()}</span>
-                    <span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {note.pageCount || "?"} Pages</span>
-                </div>
+        <div className="sticky top-16 z-30 bg-card/80 backdrop-blur-sm py-4 px-2 rounded-md">
+          <div className="max-w-6xl mx-auto">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition">
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl md:text-3xl font-bold truncate max-w-[60vw]">{note.title}</h1>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={handleDownloadPDF} className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-lg font-medium hover:opacity-90">
+                  <Download className="h-4 w-4" /> Download PDF
+                </button>
+              </div>
             </div>
-            <button onClick={handleDownloadPDF} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:opacity-90">
-                <Download className="h-4 w-4" /> Download PDF
-            </button>
+
+            <div className="mt-3 text-sm text-muted-foreground flex items-center gap-6">
+              <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {new Date(note.createdAt).toLocaleDateString()}</span>
+              <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> {note.pageCount || "?"} Pages</span>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm min-h-[500px]">
-            <div className="prose dark:prose-invert max-w-none">
-                <ReactMarkdown>{note.summary}</ReactMarkdown>
+        <div className="mt-6 max-w-6xl mx-auto">
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm min-h-[480px]">
+            <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed">
+              <ReactMarkdown>{note.summary}</ReactMarkdown>
             </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>

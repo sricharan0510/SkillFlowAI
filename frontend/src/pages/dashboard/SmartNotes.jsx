@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/interactive/DashboardLayout";
 import { UploadCloud, Layers, CheckCircle2, Loader2, FileText, AlertCircle, Search } from "lucide-react";
 import { uploadMaterial, generateSummary, getMaterials } from "../../services/materialApi";
+import { useAuth } from "../../contexts/AuthContext";
 import ReactMarkdown from "react-markdown"; 
 import { jsPDF } from "jspdf";
 
@@ -21,16 +22,16 @@ export default function SmartNotes() {
   const [sidebarSearch, setSidebarSearch] = useState("");
   
   const navigate = useNavigate();
+    const { accessToken, loading: authLoading } = useAuth();
 
-useEffect(() => {
-    const token = localStorage.getItem("userToken") || localStorage.getItem("token") || localStorage.getItem("accessToken");
-    
-    if (token) {
+    useEffect(() => {
+        if (authLoading) return;
+        if (!accessToken) {
+            navigate('/signin');
+            return;
+        }
         fetchHistory();
-    } else {
-        navigate('/signin');
-    }
-  }, []); 
+    }, [authLoading, accessToken]); 
 
   const fetchHistory = async () => {
     try {
