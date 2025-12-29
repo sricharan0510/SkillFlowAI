@@ -43,16 +43,33 @@ export default function NoteDetail() {
   const handleDownloadPDF = () => {
     if (!note || !note.summary) return;
     const doc = new jsPDF();
+    const margin = 10;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
     doc.setFontSize(20);
-    doc.text(note.title, 10, 20);
+    const title = note.title || "Document";
+    doc.text(title, margin, 20);
     doc.setFontSize(10);
-    doc.text(`Generated on ${new Date(note.createdAt).toLocaleDateString()}`, 10, 30);
+    doc.text(`Generated on ${new Date(note.createdAt).toLocaleDateString()}`, margin, 30);
     doc.setFontSize(12);
-    
-    const cleanText = note.summary.replace(/[#*`]/g, ''); 
-    const splitText = doc.splitTextToSize(cleanText, 180);
-    doc.text(splitText, 10, 40);
-    doc.save(`${note.title}.pdf`);
+
+    const cleanText = note.summary.replace(/[#*`]/g, "");
+    const wrapped = doc.splitTextToSize(cleanText, pageWidth - margin * 2);
+
+    let y = 40;
+    const lineHeight = 7; 
+    for (let i = 0; i < wrapped.length; i++) {
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        y = margin + 10;
+      }
+      doc.text(wrapped[i], margin, y);
+      y += lineHeight;
+    }
+
+    const safeTitle = title.replace(/[\\/:*?"<>|]/g, "-");
+    doc.save(`${safeTitle}.pdf`);
   };
 
   if (loading) return (
