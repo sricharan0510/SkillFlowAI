@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { getMaterials, deleteMaterial } from "../../services/materialApi";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function MyLibrary() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,6 +29,9 @@ export default function MyLibrary() {
     if (c === "notes" || c === "note") return "note";
     return category;
   };
+
+  const navigate = useNavigate();
+  const { accessToken, loading: authLoading } = useAuth();
 
   useEffect(() => {
     let mounted = true;
@@ -51,10 +56,15 @@ export default function MyLibrary() {
         console.error("Failed to load materials:", err);
       }
     };
+    if (authLoading) return;
+    if (!accessToken) {
+      navigate('/signin');
+      return;
+    }
 
     fetchMaterials();
     return () => { mounted = false; };
-  }, []);
+  }, [authLoading, accessToken, navigate]);
 
   const filteredFiles = files.filter((file) => {
     const matchesTab = activeTab === "all" || file.type === activeTab;
