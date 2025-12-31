@@ -9,15 +9,14 @@ import OTPverification from './pages/auth/OTPverification.jsx'
 import OAuthRedirect from './pages/auth/OAuthRedirect'
 
 import DashboardHome from './pages/dashboard/DashboardHome.jsx'
-import UploadMaterial from './pages/dashboard/UploadMaterial.jsx'
 import MyLibrary from './pages/dashboard/MyLibrary.jsx'
-import Exams from './pages/dashboard/Exams.jsx'
+import Exams from './pages/dashboard/Exams/Exams.jsx'
 
-import SmartNotes from './pages/dashboard/SmartNotes.jsx'
-import AllNotes from './pages/dashboard/AllNotes.jsx'
-import NoteDetail from './pages/dashboard/NoteDetail.jsx'
+import SmartNotes from './pages/dashboard/Notes/SmartNotes.jsx'
+import AllNotes from './pages/dashboard/Notes/AllNotes.jsx'
+import NoteDetail from './pages/dashboard/Notes/NoteDetail.jsx'
 
-import MockInterviews from './pages/dashboard/MockInterviews.jsx'
+import MockInterviews from './pages/dashboard/MockInterviews/MockInterviews.jsx'
 import Performance from './pages/dashboard/Performance.jsx'
 import Settings from './pages/dashboard/Settings.jsx'
 
@@ -50,7 +49,6 @@ function App() {
             <Route path="/dashboard/performance" element={<Performance />} />
             <Route path="/dashboard/settings" element={<Settings />} />
 
-            <Route path="/dashboard/upload" element={<UploadMaterial />} />
           </Routes>
         </AuthProvider>
       </ThemeProvider>

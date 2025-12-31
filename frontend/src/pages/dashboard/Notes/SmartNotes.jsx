@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardLayout from "../../components/interactive/DashboardLayout";
+import DashboardLayout from "../../../components/interactive/DashboardLayout";
 import { UploadCloud, Layers, CheckCircle2, Loader2, FileText, AlertCircle, Search } from "lucide-react";
-import { uploadMaterial, generateSummary, getMaterials } from "../../services/materialApi";
-import { useAuth } from "../../contexts/AuthContext";
+import { uploadMaterial, generateSummary, getMaterials } from "../../../services/materialApi";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export default function SmartNotes() {
     const [file, setFile] = useState(null);

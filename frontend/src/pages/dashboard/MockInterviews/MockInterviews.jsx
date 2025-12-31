@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import DashboardLayout from "../../components/interactive/DashboardLayout";
+import DashboardLayout from "../../../components/interactive/DashboardLayout";
 import { 
   Mic, 
   UploadCloud, 

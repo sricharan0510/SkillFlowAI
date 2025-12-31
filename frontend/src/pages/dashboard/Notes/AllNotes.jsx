@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import DashboardLayout from "../../components/interactive/DashboardLayout";
+import DashboardLayout from "../../../components/interactive/DashboardLayout";
 import { Search, FileText, Calendar, ArrowRight, Loader2, Download, Trash2 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { getMaterials } from "../../services/materialApi";
-import { deleteMaterial } from "../../services/materialApi";
+import { getMaterials } from "../../../services/materialApi";
+import { deleteMaterial } from "../../../services/materialApi";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from 'lucide-react'
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export default function AllNotes() {
     const [notes, setNotes] = useState([]);

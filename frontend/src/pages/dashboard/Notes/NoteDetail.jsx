@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import DashboardLayout from "../../components/interactive/DashboardLayout";
+import DashboardLayout from "../../../components/interactive/DashboardLayout";
 import { ArrowLeft, Download, Calendar, FileText, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { jsPDF } from "jspdf";
-import api from "../../services/axios"; 
-import { useAuth } from "../../contexts/AuthContext";
+import api from "../../../services/axios"; 
+import { useAuth } from "../../../contexts/AuthContext";
 
 export default function NoteDetail() {
   const { id } = useParams();
