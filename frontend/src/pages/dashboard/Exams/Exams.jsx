@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../../components/interactive/DashboardLayout";
 import { 
   UploadCloud, 
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 
 export default function ExamHall() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [source, setSource] = useState("upload"); 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -37,6 +39,10 @@ export default function ExamHall() {
       ...prev,
       questionTypes: { ...prev.questionTypes, [type]: !prev.questionTypes[type] }
     }));
+  };
+
+  const handleGenerateExam = () => {
+    navigate('/dashboard/exams/start', { state: { config, selectedFile } });
   };
 
   return (
@@ -216,7 +222,7 @@ export default function ExamHall() {
                     <button onClick={() => setStep(1)} className="px-6 py-3 border border-border rounded-xl text-sm font-medium hover:bg-muted">
                         Back
                     </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-bold hover:shadow-lg transition hover:-translate-y-0.5">
+                    <button onClick={handleGenerateExam} className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-bold hover:shadow-lg transition hover:-translate-y-0.5">
                         <Play className="h-4 w-4 fill-current" /> Generate Exam
                     </button>
                   </div>

@@ -11,6 +11,8 @@ import OAuthRedirect from './pages/auth/OAuthRedirect'
 import DashboardHome from './pages/dashboard/DashboardHome.jsx'
 import MyLibrary from './pages/dashboard/MyLibrary.jsx'
 import Exams from './pages/dashboard/Exams/Exams.jsx'
+import ExamPortal from './pages/dashboard/Exams/ExamPortal.jsx'
+import ExamResults from './pages/dashboard/Exams/ExamResults.jsx'
 
 import SmartNotes from './pages/dashboard/Notes/SmartNotes.jsx'
 import AllNotes from './pages/dashboard/Notes/AllNotes.jsx'
@@ -45,6 +47,8 @@ function App() {
             <Route path="/dashboard/summaries/:id" element={<NoteDetail />} />
 
             <Route path="/dashboard/exams" element={<Exams />} />
+            <Route path="/dashboard/exams/start" element={<ExamPortal />} />
+            <Route path="/dashboard/exams/results" element={<ExamResults />} />
             <Route path="/dashboard/interviews" element={<MockInterviews />} />
             <Route path="/dashboard/performance" element={<Performance />} />
             <Route path="/dashboard/settings" element={<Settings />} />
