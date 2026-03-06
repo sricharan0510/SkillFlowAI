@@ -179,31 +179,77 @@ exports.getUserExams = async (req, res) => {
 exports.saveExamResult = async (req, res) => {
   try {
     const { examId } = req.params;
-    const { score, correctAnswers, totalQuestions, timeSpent, markedForReview, notAnswered, answers } = req.body;
+    const { score, timeSpent, markedForReview, answers } = req.body;
+
+    console.log('Saving exam result for examId:', examId);
+    console.log('Request body:', { score, timeSpent, markedForReview, answers: Object.keys(answers || {}) });
 
     const exam = await Exam.findOne({ _id: examId, userId: req.user.id });
     if (!exam) {
+      console.log('Exam not found for id:', examId, 'user:', req.user.id);
       return res.status(404).json({ message: "Exam not found" });
     }
 
     if (exam.result && exam.result.isCompleted) {
+        console.log('Exam already submitted');
         return res.status(400).json({ message: "Exam already submitted" });
     }
 
+    if (!exam.questions || !Array.isArray(exam.questions)) {
+      console.log('Exam questions not found or not an array');
+      return res.status(400).json({ message: "Exam questions not found" });
+    }
+
+    // Compute stats from answers and questions
+    let correctAnswers = 0;
+    let notAnswered = 0;
+    const totalQuestions = exam.questions.length;
+
+    console.log('Computing stats for', totalQuestions, 'questions');
+
+    exam.questions.forEach((q, index) => {
+      try {
+        const questionId = q._id || q.id;
+        const userAnswer = answers ? answers[questionId] : undefined;
+        
+        if (userAnswer === undefined || userAnswer === null) {
+          notAnswered++;
+        } else {
+          let isCorrect = false;
+          if (q.correct !== undefined) {
+            if (typeof q.correct === 'boolean') {
+              isCorrect = userAnswer === q.correct;
+            } else {
+              isCorrect = userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+            }
+          }
+          if (isCorrect) correctAnswers++;
+        }
+      } catch (err) {
+        console.error('Error processing question', index, ':', err);
+      }
+    });
+
+    const computedScore = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+    console.log('Computed stats:', { correctAnswers, notAnswered, totalQuestions, computedScore });
+
     // Save result
     exam.result = {
-      score,
+      score: computedScore,
       correctAnswers,
       totalQuestions,
-      timeSpent,
-      markedForReview,
+      timeSpent: timeSpent || 0,
+      markedForReview: markedForReview || 0,
       notAnswered,
-      answers,
+      answers: answers || {},
       completedAt: new Date(),
       isCompleted: true,
     };
 
     await exam.save();
+
+    console.log('Exam result saved successfully');
 
     return res.status(200).json({
       success: true,
@@ -212,7 +258,7 @@ exports.saveExamResult = async (req, res) => {
     });
   } catch (error) {
     console.error("Save exam result error:", error);
-    return res.status(500).json({ message: "Failed to save exam result" });
+    return res.status(500).json({ message: "Failed to save exam result", error: error.message });
   }
 };
 

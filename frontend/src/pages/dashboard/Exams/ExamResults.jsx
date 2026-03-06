@@ -41,11 +41,48 @@ export default function ExamResults() {
     markedForReview = 0,
     notAnswered = 0,
     weakAreas = [],
-    answers: allAnswers = {},
+    answers: resultAnswers = {},
     allQuestions: originalQuestions = []
   } = effectiveResultData || {};
 
+  // Ensure allAnswers always exists
+  const allAnswers = effectiveResultData?.answers || resultAnswers || {};
   const allQuestions = fullExam?.questions || originalQuestions || [];
+
+  const computeStats = (questions, answers) => {
+    let correctAnswers = 0;
+    let totalQuestions = questions.length;
+    let notAnswered = 0;
+    let markedForReview = 0; // Assuming not available from API
+    let timeSpent = 0; // Assuming not available from API
+    let score = 0;
+
+    questions.forEach(q => {
+      const questionId = q._id || q.id;
+      const userAnswer = answers[questionId];
+      if (userAnswer === undefined || userAnswer === null) {
+        notAnswered++;
+      } else {
+        const isCorrect = typeof q.correct === 'boolean'
+          ? userAnswer === q.correct
+          : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+        if (isCorrect) correctAnswers++;
+      }
+    });
+
+    score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+    return {
+      score,
+      correctAnswers,
+      totalQuestions,
+      timeSpent,
+      markedForReview,
+      notAnswered,
+      answers,
+      allQuestions: questions
+    };
+  };
 
   const percentage = score;
   const timeSpentMin = Math.floor(timeSpent / 60);
@@ -65,13 +102,19 @@ export default function ExamResults() {
     const categories = {};
     allQuestions.forEach(q => {
       const category = q.type || 'mcq';
+      const questionId = q._id || q.id;
+      const userAnswer = allAnswers[questionId];
+      
+      // Initialize category if not exists
       if (!categories[category]) {
-        categories[category] = { total: 0, correct: 0 };
+        categories[category] = { total: 0, correct: 0, answered: 0 };
       }
+      
       categories[category].total++;
-
-      const userAnswer = allAnswers[q.id];
-      if (userAnswer !== undefined) {
+      
+      // Only count answered questions
+      if (userAnswer !== undefined && userAnswer !== null) {
+        categories[category].answered++;
         const isCorrect = typeof q.correct === 'boolean'
           ? userAnswer === q.correct
           : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
@@ -83,16 +126,25 @@ export default function ExamResults() {
 
   const filteredReviewQuestions = useMemo(() => {
     return allQuestions.filter(q => {
-      const isAnswered = allAnswers[q.id] !== undefined;
-      const isCorrect = isAnswered && (
-        typeof q.correct === 'boolean'
-          ? allAnswers[q.id] === q.correct
-          : allAnswers[q.id]?.toString().toLowerCase() === q.correct?.toString().toLowerCase()
-      );
+      const questionId = q._id || q.id;
+      const userAnswer = allAnswers[questionId];
+      const isAnswered = userAnswer !== undefined && userAnswer !== null;
+      
+      if (!isAnswered) {
+        // Not answered question
+        if (reviewFilter === 'all' || reviewFilter === 'not-answered') return true;
+        return false;
+      }
+      
+      // Answered question - check if correct
+      const isCorrect = typeof q.correct === 'boolean'
+        ? userAnswer === q.correct
+        : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
 
       if (reviewFilter === 'correct') return isCorrect;
       if (reviewFilter === 'wrong') return !isCorrect;
-      return true;
+      if (reviewFilter === 'not-answered') return false;
+      return true; // 'all'
     });
   }, [allQuestions, allAnswers, reviewFilter]);
 
@@ -119,8 +171,24 @@ export default function ExamResults() {
         try {
           const response = await getExamWithAnswers(examId);
           setFullExam(response.exam);
-          if (!resultData && response.exam.result?.isCompleted) {
-            setEffectiveResultData({ ...response.exam.result, examId });
+          
+          // If no resultData from navigation, use the result from the fetched exam
+          if (!resultData && response.exam?.result?.isCompleted) {
+            const result = response.exam.result;
+            // Set the effectiveResultData with all answer information
+            setEffectiveResultData({
+              ...result,
+              answers: result.answers || {},
+              allQuestions: response.exam.questions || [],
+              examId
+            });
+          } else if (resultData && !effectiveResultData?.answers) {
+            // If resultData exists but answers are not set, set them from resultData
+            setEffectiveResultData({
+              ...resultData,
+              answers: resultData.answers || {},
+              allQuestions: response.exam.questions || []
+            });
           }
         } catch (error) {
           console.error("Failed to fetch exam with answers:", error);
@@ -132,7 +200,7 @@ export default function ExamResults() {
     } else {
       setLoading(false);
     }
-  }, [resultData?.examId, paramExamId]);
+  }, [paramExamId]);
 
   if (!effectiveResultData) {
     return (
@@ -202,7 +270,7 @@ export default function ExamResults() {
         </motion.div>
 
         <div className="flex w-full gap-2 mb-8 bg-white rounded-xl shadow-sm p-2">
-          {['overview', 'analysis', 'weak-areas', 'review'].map((tab) => (
+          {['overview', 'analysis', 'review'].map((tab) => (
             <button
               key={tab}
               onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
@@ -248,91 +316,47 @@ export default function ExamResults() {
                   <BarChart3 className="h-6 w-6 text-primary" /> Category-wise Performance
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {Object.entries(categoryPerformance).map(([category, stats]) => {
-                    const catPercentage = Math.round((stats.correct / stats.total) * 100);
-                    const label = category === 'mcq' ? 'Multiple Choice' : category === 'short' ? 'Short Answer' : category === 'fill' ? 'Fill Blanks' : 'True/False';
+                  {Object.entries(categoryPerformance).length > 0 ? (
+                    Object.entries(categoryPerformance).map(([category, stats]) => {
+                      // Only show if there are answered questions
+                      if (stats.answered === 0) return null;
+                      
+                      const catPercentage = Math.round((stats.correct / stats.answered) * 100);
+                      const label = category === 'mcq' ? 'Multiple Choice' 
+                        : category === 'shortAns' ? 'Short Answer' 
+                        : category === 'fillBlanks' ? 'Fill Blanks' 
+                        : category === 'trueFalse' ? 'True/False' 
+                        : category;
 
-                    return (
-                      <motion.div
-                        key={category}
-                        variants={itemVariants}
-                        className="p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200"
-                      >
-                        <h4 className="text-lg font-bold text-slate-900 mb-4 capitalize">{label}</h4>
-                        <div className="space-y-3">
-                          <div className="flex justify-between mb-2">
-                            <span className="text-sm text-slate-600">Correct</span>
-                            <span className="font-bold text-slate-900">{stats.correct}/{stats.total}</span>
+                      return (
+                        <motion.div
+                          key={category}
+                          variants={itemVariants}
+                          className="p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200"
+                        >
+                          <h4 className="text-lg font-bold text-slate-900 mb-4 capitalize">{label}</h4>
+                          <div className="space-y-3">
+                            <div className="flex justify-between mb-2">
+                              <span className="text-sm text-slate-600">Correct</span>
+                              <span className="font-bold text-slate-900">{stats.correct}/{stats.answered}</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-3">
+                              <div
+                                className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                                style={{ width: `${catPercentage}%` }}
+                              />
+                            </div>
+                            <div className="text-center pt-2">
+                              <span className="text-3xl font-bold text-slate-900">{catPercentage}%</span>
+                            </div>
                           </div>
-                          <div className="w-full bg-slate-200 rounded-full h-3">
-                            <div
-                              className="bg-green-500 h-3 rounded-full transition-all duration-500"
-                              style={{ width: `${catPercentage}%` }}
-                            />
-                          </div>
-                          <div className="text-center pt-2">
-                            <span className="text-3xl font-bold text-slate-900">{catPercentage}%</span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                        </motion.div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full py-12 text-center text-slate-500">No questions answered yet.</div>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'weak-areas' && (
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                  <Target className="h-6 w-6 text-red-600" /> Improvement Roadmap
-                </h3>
-                {weakAreas.length > 0 ? (
-                  <div className="space-y-6">
-                    {weakAreas.map((question, idx) => (
-                      <div key={question.id} className="p-6 border-2 border-red-100 bg-red-50/30 rounded-xl">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center font-bold text-red-700">{idx + 1}</div>
-                          <div className="flex-grow">
-                            <h4 className="font-bold text-slate-900 mb-3">{question.text}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                              <div className="bg-white p-3 rounded-lg border-l-4 border-red-500">
-                                <span className="text-xs text-slate-500 block mb-1">Your Answer</span>
-                                <span className="font-medium text-slate-900">{allAnswers[question.id] || 'Not answered'}</span>
-                              </div>
-                              <div className="bg-white p-3 rounded-lg border-l-4 border-green-500">
-                                <span className="text-xs text-slate-500 block mb-1">Correct Answer</span>
-                                <span className="font-medium text-slate-900">{question.correct}</span>
-                              </div>
-                            </div>
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                              <div className="flex items-center gap-2 text-blue-700 font-bold text-sm mb-2">
-                                <Lightbulb className="h-4 w-4" /> AI Explanation
-                              </div>
-                              <p className="text-sm text-slate-700 leading-relaxed">
-                                {question.explanation || "This question tests your understanding of core concepts in this domain. Focus on the relationship between variables and the specific terminology used in the correct choice."}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="mt-8 p-6 bg-primary/5 border border-primary/20 rounded-xl">
-                      <h4 className="font-bold text-primary mb-3 flex items-center gap-2"><Award className="h-5 w-5" /> Recommended Study Plan</h4>
-                      <ul className="space-y-2 text-slate-700 text-sm">
-                        <li>• Review the fundamentals of {Object.keys(categoryPerformance)[0] || 'the core'} topics where accuracy was below 60%.</li>
-                        <li>• Practice 5-10 additional questions focusing specifically on your "Wrong" answer list.</li>
-                        <li>• Schedule a mock interview session focusing on technical explanations of these weak areas.</li>
-                      </ul>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Award className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold text-green-600">Perfect Score!</h3>
-                    <p className="text-slate-600 mt-2">You mastered every topic in this assessment.</p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -340,15 +364,15 @@ export default function ExamResults() {
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                   <h3 className="text-xl font-bold text-slate-900">Comprehensive Review</h3>
-                  <div className="flex bg-slate-100 p-1 rounded-lg">
-                    {['all', 'correct', 'wrong'].map((f) => (
+                  <div className="flex bg-slate-100 p-1 rounded-lg flex-wrap">
+                    {['all', 'correct', 'wrong', 'not-answered'].map((f) => (
                       <button
                         key={f}
                         onClick={() => { setReviewFilter(f); setCurrentPage(1); }}
                         className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${reviewFilter === f ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                           }`}
                       >
-                        {f}
+                        {f === 'not-answered' ? 'Not Answered' : f}
                       </button>
                     ))}
                   </div>
@@ -357,23 +381,63 @@ export default function ExamResults() {
                 <div className="space-y-4 mb-8">
                   {paginatedQuestions.length > 0 ? (
                     paginatedQuestions.map((q, idx) => {
-                      const isAns = allAnswers[q.id] !== undefined;
-                      const isCorr = isAns && (
-                        typeof q.correct === 'boolean'
-                          ? allAnswers[q.id] === q.correct
-                          : allAnswers[q.id]?.toString().toLowerCase() === q.correct?.toString().toLowerCase()
-                      );
+                      const questionId = q._id || q.id;
+                      const userAnswer = allAnswers[questionId];
+                      const isAnswered = userAnswer !== undefined && userAnswer !== null;
+                      let isCorrect = false;
+                      
+                      if (isAnswered) {
+                        isCorrect = typeof q.correct === 'boolean'
+                          ? userAnswer === q.correct
+                          : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+                      }
+                      
                       const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
+                      
+                      let bgColor = 'bg-gray-50/50 border-gray-200';
+                      let icon = null;
+                      let statusText = 'Not Answered';
+                      
+                      if (isAnswered) {
+                        if (isCorrect) {
+                          bgColor = 'bg-green-50/50 border-green-200';
+                          icon = <CheckCircle className="h-5 w-5 text-green-600 mt-1" />;
+                          statusText = 'Correct';
+                        } else {
+                          bgColor = 'bg-red-50/50 border-red-200';
+                          icon = <XCircle className="h-5 w-5 text-red-600 mt-1" />;
+                          statusText = 'Incorrect';
+                        }
+                      } else {
+                        icon = <AlertCircle className="h-5 w-5 text-gray-500 mt-1" />;
+                      }
 
                       return (
-                        <div key={q.id} className={`p-5 border-2 rounded-xl transition-all ${isCorr ? 'bg-green-50/50 border-green-200' : 'bg-red-50/50 border-red-200'}`}>
+                        <div key={q._id || idx} className={`p-5 border-2 rounded-xl transition-all ${bgColor}`}>
                           <div className="flex items-start gap-3">
-                            {isCorr ? <CheckCircle className="h-5 w-5 text-green-600 mt-1" /> : <XCircle className="h-5 w-5 text-red-600 mt-1" />}
+                            {icon}
                             <div className="flex-grow">
                               <p className="font-bold text-slate-900 mb-3 text-sm">{globalIdx}. {q.text}</p>
-                              <div className="flex flex-wrap gap-4 text-xs">
-                                <div className="text-slate-600"><span className="font-semibold text-slate-900">Your Answer:</span> {allAnswers[q.id] || 'No Answer'}</div>
-                                {!isCorr && <div className="text-slate-600"><span className="font-semibold text-green-700">Correct:</span> {q.correct}</div>}
+                              <div className="flex flex-col gap-2 text-xs">
+                                <div className="text-slate-600">
+                                  <span className="font-semibold text-slate-900">Your Answer:</span> {' '}
+                                  <span className={isAnswered ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-500'}>
+                                    {isAnswered ? userAnswer : 'Not Answered'}
+                                  </span>
+                                </div>
+                                {isAnswered && !isCorrect && (
+                                  <div className="text-slate-600">
+                                    <span className="font-semibold text-green-700">Correct Answer:</span> {' '}
+                                    <span className="text-green-700">{q.correct !== undefined ? q.correct : 'Not specified'}</span>
+                                  </div>
+                                )}
+                                <div className="text-slate-600 pt-1">
+                                  <span className={`font-semibold px-2 py-1 rounded text-xs ${
+                                    isAnswered ? (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') : 'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {statusText}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
