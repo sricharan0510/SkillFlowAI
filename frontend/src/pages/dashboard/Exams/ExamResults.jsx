@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle,
@@ -16,39 +16,36 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import { getExamWithAnswers } from '../../../services/examApi';
 
 export default function ExamResults() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { examId: paramExamId } = useParams();
   const { resultData } = location.state || {};
 
   const [activeTab, setActiveTab] = useState('overview');
   const [reviewFilter, setReviewFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [fullExam, setFullExam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [effectiveResultData, setEffectiveResultData] = useState(resultData);
   const itemsPerPage = 5;
 
-  if (!resultData) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">No Results Found</h2>
-          <Button onClick={() => navigate('/dashboard/exams')}>Back to Exams</Button>
-        </div>
-      </div>
-    );
-  }
-
+  // derive safe defaults so hooks order is constant
   const {
-    score,
-    correctAnswers,
-    totalQuestions,
-    timeSpent,
-    markedForReview,
-    notAnswered,
-    weakAreas,
-    allAnswers,
-    allQuestions
-  } = resultData;
+    score = 0,
+    correctAnswers = 0,
+    totalQuestions = 0,
+    timeSpent = 0,
+    markedForReview = 0,
+    notAnswered = 0,
+    weakAreas = [],
+    answers: allAnswers = {},
+    allQuestions: originalQuestions = []
+  } = effectiveResultData || {};
+
+  const allQuestions = fullExam?.questions || originalQuestions || [];
 
   const percentage = score;
   const timeSpentMin = Math.floor(timeSpent / 60);
@@ -114,6 +111,51 @@ export default function ExamResults() {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  useEffect(() => {
+    const examId = resultData?.examId || paramExamId;
+    if (examId) {
+      const fetchFullExam = async () => {
+        try {
+          const response = await getExamWithAnswers(examId);
+          setFullExam(response.exam);
+          if (!resultData && response.exam.result?.isCompleted) {
+            setEffectiveResultData({ ...response.exam.result, examId });
+          }
+        } catch (error) {
+          console.error("Failed to fetch exam with answers:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchFullExam();
+    } else {
+      setLoading(false);
+    }
+  }, [resultData?.examId, paramExamId]);
+
+  if (!effectiveResultData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">No Results Found</h2>
+          <Button onClick={() => navigate('/dashboard/exams')}>Back to Exams</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading results...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">

@@ -1,58 +1,75 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ChevronLeft, ChevronRight, Flag, AlertCircle, CheckCircle, Monitor } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Flag, AlertCircle, CheckCircle, Monitor, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import '../../../App.css';
+import { getExamWithAnswers, saveExamResult } from '../../../services/examApi';
 
 const ExamPortal = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { examId } = location.state || {};
+
   const [examStarted, setExamStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [visited, setVisited] = useState([]);
   const [answers, setAnswers] = useState({});
   const [markedForReview, setMarkedForReview] = useState([]);
   const [showConfirmFinish, setShowConfirmFinish] = useState(false);
+  const [examData, setExamData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Track if exam has already been finished to prevent double-finishing
+  const examFinishedRef = useRef(false);
+  const fullscreenLockedRef = useRef(false);
 
-  const questions = [
-    { id: 1, type: 'mcq', text: "What is 15 + 27?", options: ["40", "42", "44", "38"], correct: "42" },
-    { id: 2, type: 'mcq', text: "Which language is used for web styling?", options: ["Python", "HTML", "CSS", "Java"], correct: "CSS" },
-    { id: 3, type: 'short', text: "What does HTML stand for?", correct: "Hyper Text Markup Language" },
-    { id: 4, type: 'mcq', text: "Which symbol is used for single-line comments in JavaScript?", options: ["<!-- -->", "#", "//", "/* */"], correct: "//" },
-    { id: 5, text: "What is 9 × 6?", options: ["42", "54", "56", "48"], correct: "54" },
-    { id: 6, text: "Which of the following is a JavaScript framework?", options: ["Django", "Laravel", "React", "Flask"], correct: "React" },
-    { id: 7, text: "What keyword is used to declare a constant in JavaScript?", options: ["var", "let", "const", "static"], correct: "const" },
-    { id: 8, text: "Which HTML tag is used to create a hyperlink?", options: ["<link>", "<a>", "<href>", "<url>"], correct: "<a>" },
-    { id: 9, text: "What is 100 ÷ 4?", options: ["20", "25", "30", "40"], correct: "25" },
-    { id: 10, text: "Which CSS property controls text size?", options: ["font-style", "text-size", "font-size", "text-style"], correct: "font-size" },
-    { id: 11, text: "Which company developed JavaScript?", options: ["Microsoft", "Sun Microsystems", "Netscape", "Oracle"], correct: "Netscape" },
-    { id: 12, text: "What does CSS stand for?", options: ["Computer Style Sheets", "Cascading Style Sheets", "Creative Style System", "Colorful Style Sheets"], correct: "Cascading Style Sheets" },
-    { id: 13, text: "Which operator is used for strict equality in JavaScript?", options: ["==", "=", "===", "!="], correct: "===" },
-    { id: 14, type: 'short', text: "What is the result of 5 + '5' in JavaScript?", correct: "55" },
-    { id: 15, text: "Which HTML tag is used for an unordered list?", options: ["<ol>", "<ul>", "<li>", "<list>"], correct: "<ul>" },
-    { id: 16, text: "Which method converts JSON to a JavaScript object?", options: ["JSON.stringify()", "JSON.parse()", "JSON.convert()", "JSON.object()"], correct: "JSON.parse()" },
-    { id: 17, text: "What is 7²?", options: ["14", "21", "49", "77"], correct: "49" },
-    { id: 18, text: "Which CSS property is used to change text color?", options: ["font-color", "text-color", "color", "foreground"], correct: "color" },
-    { id: 19, text: "Which HTML attribute is used to define inline styles?", options: ["class", "style", "font", "css"], correct: "style" },
-    { id: 20, text: "Which keyword is used to define a function in JavaScript?", options: ["func", "define", "function", "method"], correct: "function" },
-    { id: 21, text: "What is the output of Math.floor(4.9)?", options: ["4", "5", "4.9", "Error"], correct: "4" },
-    { id: 22, text: "Which CSS property controls the spacing between elements?", options: ["padding", "margin", "spacing", "gap"], correct: "margin" },
-    { id: 23, type: 'fill', text: "Fill the tag used to display an image (without angle brackets):", correct: "img" },
-    { id: 24, text: "What is the default value of position in CSS?", options: ["relative", "absolute", "fixed", "static"], correct: "static" },
-    { id: 25, text: "Which loop is guaranteed to run at least once?", options: ["for", "while", "do...while", "foreach"], correct: "do...while" },
-    { id: 26, text: "What does DOM stand for?", options: ["Document Object Model", "Data Object Model", "Digital Ordinance Model", "Desktop Object Model"], correct: "Document Object Model" },
-    { id: 27, text: "Which event occurs when a user clicks an HTML element?", options: ["onhover", "onchange", "onclick", "onmouse"], correct: "onclick" },
-    { id: 28, type: 'tf', text: "2³ equals 8.", correct: true },
-    { id: 29, text: "Which JavaScript method is used to select an element by ID?", options: ["querySelector()", "getElement()", "getElementById()", "selectById()"], correct: "getElementById()" },
-    { id: 30, text: "Which CSS unit is relative to the root element?", options: ["em", "px", "rem", "%"], correct: "rem" }
-  ];
+  // Helper function to check if question has been answered
+  const hasAnswered = (id) => Object.prototype.hasOwnProperty.call(answers, id);
 
-  const [timeLeft, setTimeLeft] = useState(questions.length * 60);
+  // Declare all hooks here - before any conditional returns
+  useEffect(() => {
+    if (!examId) {
+      setError("No exam ID provided");
+      setLoading(false);
+      return;
+    }
+
+    const fetchExam = async () => {
+      try {
+        const response = await getExamWithAnswers(examId);
+        // Bug 3: Check if exam is already completed on load
+        if(response.exam.result && response.exam.result.isCompleted) {
+             navigate(`/dashboard/exams/results/${examId}`, {
+                state: { resultData: response.exam.result }
+             });
+             return;
+        }
+
+        setExamData(response.exam);
+        setTimeLeft(response.exam.questions.length * 60);
+      } catch (err) {
+        console.error("Failed to fetch exam:", err);
+        // Handle the specific error code for completed exams if api returns 403
+        if (err.response && (err.response.status === 403 || err.response.data.isCompleted)) {
+            navigate('/dashboard/exams'); // Or alert user
+        } else {
+            setError("Failed to load exam");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExam();
+  }, [examId, navigate]);
 
   useEffect(() => {
     const handleContextMenu = (e) => e.preventDefault();
     const handleKeyDown = (e) => {
-      // Prevent ESC key to exit fullscreen
       if (e.key === 'Escape') {
         e.preventDefault();
         return;
@@ -64,38 +81,74 @@ const ExamPortal = () => {
     };
 
     const handleFullscreenChange = () => {
-      // If user tries to exit fullscreen, re-enter it
-      if (examStarted && !document.fullscreenElement) {
+      // If exam started and user exits fullscreen, lock them back in
+      if (examStarted && !document.fullscreenElement && fullscreenLockedRef.current) {
         const elem = document.documentElement;
         if (elem.requestFullscreen) {
-          elem.requestFullscreen().catch(() => {});
+          elem.requestFullscreen().catch((err) => {
+            console.log("Could not re-enter fullscreen:", err);
+          });
         }
       }
     };
 
+    // Bug 5: Navigation Guards
+    const handleBeforeUnload = (e) => {
+      if (examStarted && !examFinishedRef.current) {
+        e.preventDefault();
+        e.returnValue = 'You have an active exam. Are you sure you want to leave?';
+        return 'You have an active exam. Are you sure you want to leave?';
+      }
+    };
+
+    const handlePopState = (e) => {
+      if (examStarted && !examFinishedRef.current) {
+        e.preventDefault();
+        // Force stay on page
+        window.history.pushState(null, '', window.location.href);
+        alert("You cannot go back during an active exam. Please finish the exam to exit.");
+      }
+    };
+
     if (examStarted) {
+      fullscreenLockedRef.current = true;
       document.addEventListener('contextmenu', handleContextMenu);
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('fullscreenchange', handleFullscreenChange);
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('popstate', handlePopState);
+      window.history.pushState(null, '', window.location.href);
     }
 
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
     };
   }, [examStarted]);
 
-  // Timer Logic
   useEffect(() => {
-    if (examStarted && timeLeft > 0) {
-      const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    if (examData && examStarted && timeLeft > 1) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
       return () => clearInterval(timer);
-    } else if (timeLeft === 0) {
-      handleFinishExam();
+    } else if (examData && examStarted && timeLeft <= 1 && !examFinishedRef.current) {
+      // Time's up - calculate and submit results directly
+      examFinishedRef.current = true;
+      handleFinishExamInternal();
     }
-  }, [examStarted, timeLeft]);
+  }, [examData, answers, timeLeft, markedForReview]);
 
+  // Derived state from examData
+  const questions = examData?.questions?.map((q, index) => ({
+    ...q,
+    id: index + 1
+  })) || [];
+
+  // Helper functions
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -105,15 +158,23 @@ const ExamPortal = () => {
   const handleStartExam = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-      elem.requestFullscreen();
+      elem.requestFullscreen().catch((err) => {
+        alert("Full-screen mode is required to take the exam. Please allow fullscreen and try again.");
+      });
     }
     setExamStarted(true);
   };
 
-  const handleFinishExam = () => {
-    setExamStarted(false);
-    document.exitFullscreen().catch(() => { });
+  const handleFinishExamInternal = useCallback(async () => {
+    if (!examData || !examData._id) {
+      console.error("Exam data not available");
+      return;
+    }
     
+    // Prevent double submission
+    if(isSubmitting) return;
+    setIsSubmitting(true);
+
     // Calculate results
     const correctAnswers = questions.filter(q => {
       if (!hasAnswered(q.id)) return false;
@@ -125,14 +186,13 @@ const ExamPortal = () => {
     
     const score = Math.round((correctAnswers / questions.length) * 100);
     
-    // Identify weakness areas (wrong answers)
     const weakAreas = questions
       .filter(q => hasAnswered(q.id) && (
         typeof q.correct === 'boolean' 
           ? answers[q.id] !== q.correct 
           : answers[q.id]?.toLowerCase() !== q.correct?.toLowerCase()
       ))
-      .slice(0, 5); // Top 5 weakness areas
+      .slice(0, 5);
     
     const resultData = {
       score,
@@ -143,11 +203,76 @@ const ExamPortal = () => {
       notAnswered: questions.length - Object.keys(answers).length,
       weakAreas,
       allAnswers: answers,
-      allQuestions: questions
+      allQuestions: questions,
+      examId: examData._id
     };
-    
-    navigate('/dashboard/exams/results', { state: { resultData } });
-  };
+
+    // Save result to database
+    try {
+      await saveExamResult(examData._id, resultData);
+      
+      // Cleanup Logic
+      examFinishedRef.current = true;
+      setExamStarted(false);
+      fullscreenLockedRef.current = false;
+      if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => { });
+      }
+      
+      // Navigate to results
+      navigate(`/dashboard/exams/results/${examData._id}`, { state: { resultData } });
+
+    } catch (err) {
+      console.error("Failed to save result:", err);
+      alert("Failed to save results. Please check your connection.");
+      setIsSubmitting(false); // Allow retry only on error
+    } 
+  }, [questions, answers, timeLeft, markedForReview, navigate, examData, isSubmitting]);
+
+  const handleFinishExam = useCallback(async () => {
+    await handleFinishExamInternal();
+  }, [handleFinishExamInternal]);
+
+  // ===== RENDER SECTION - All hooks declared above =====
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading exam...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={() => navigate('/dashboard/exams')}>
+            Back to Exams
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!examData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500 mb-4">Exam not found</p>
+          <Button onClick={() => navigate('/dashboard/exams')}>
+            Back to Exams
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const toggleMarkForReview = (id) => {
     setMarkedForReview(prev =>
@@ -163,8 +288,6 @@ const ExamPortal = () => {
     });
   };
 
-  const hasAnswered = (id) => Object.prototype.hasOwnProperty.call(answers, id);
-
   const navigateTo = (newIdx) => {
     const currentId = questions[currentQuestion].id;
     if (!hasAnswered(currentId) && !visited.includes(currentId)) {
@@ -173,20 +296,12 @@ const ExamPortal = () => {
     setCurrentQuestion(newIdx);
   };
 
-  // Summary counts for finish modal
   const total = questions.length;
   const answeredCount = Object.keys(answers).length;
   const markedCount = markedForReview.length;
   const answeredAndMarked = questions.filter(q => hasAnswered(q.id) && markedForReview.includes(q.id)).length;
   const answeredOnly = answeredCount - answeredAndMarked;
   const notAnsweredCount = total - answeredCount;
-
-  // categorized lists for modal
-  const answeredOnlyList = questions.filter(q => hasAnswered(q.id) && !markedForReview.includes(q.id)).map(q => q.id);
-  const markedOnlyList = questions.filter(q => !hasAnswered(q.id) && markedForReview.includes(q.id)).map(q => q.id);
-  const answeredAndMarkedList = questions.filter(q => hasAnswered(q.id) && markedForReview.includes(q.id)).map(q => q.id);
-  const notAnsweredList = questions.filter(q => !hasAnswered(q.id) && !visited.includes(q.id) && !markedForReview.includes(q.id)).map(q => q.id);
-  const visitedNotAnsweredList = questions.filter(q => visited.includes(q.id) && !hasAnswered(q.id)).map(q => q.id);
 
   if (!examStarted) {
     return (
@@ -198,7 +313,7 @@ const ExamPortal = () => {
           </div>
           <div className="space-y-4 text-slate-600 mb-8">
             <p className="flex items-start"><CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" /> Total Duration: 30 Minutes.</p>
-            <p className="flex items-start"><CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" /> Full-screen mode is mandatory. Leaving full-screen will flag your attempt.</p>
+            <p className="flex items-start"><CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" /> Full-screen mode is mandatory. You cannot exit fullscreen during the exam.</p>
             <p className="flex items-start"><CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" /> Right-click and Copy/Paste are strictly prohibited.</p>
             <p className="flex items-start"><CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" /> Ensure you have a stable internet connection.</p>
           </div>
@@ -221,7 +336,9 @@ const ExamPortal = () => {
             <Clock className="h-5 w-5" />
             <span>{formatTime(timeLeft)}</span>
           </div>
-          <Button variant="destructive" onClick={() => setShowConfirmFinish(true)}>Finish Exam</Button>
+          <Button variant="destructive" onClick={() => setShowConfirmFinish(true)} disabled={isSubmitting}>
+            {isSubmitting ? 'Submitting...' : 'Finish Exam'}
+          </Button>
         </div>
       </header>
 
@@ -239,7 +356,7 @@ const ExamPortal = () => {
               {(() => {
                 const q = questions[currentQuestion];
                 // MCQ (default)
-                if (q.type === 'tf') {
+                if (q.type === 'trueFalse') {
                   return ['True', 'False'].map((opt, idx) => {
                     const val = opt === 'True';
                     const selected = hasAnswered(q.id) && answers[q.id] === val;
@@ -258,13 +375,14 @@ const ExamPortal = () => {
                   });
                 }
 
-                if (q.type === 'short') {
+                if (q.type === 'shortAns') {
                   return (
                     <div className="col-span-1 md:col-span-2">
                       <textarea
                         rows={3}
                         className="w-full border rounded-lg p-3"
-                        value={hasAnswered(q.id) ? answers[q.id] : ''}
+                        // BUG FIX 1: Ensure controlled component with default value
+                        value={answers[q.id] || ''}
                         onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                         placeholder="Type your answer here..."
                       />
@@ -272,14 +390,16 @@ const ExamPortal = () => {
                   );
                 }
 
-                if (q.type === 'fill') {
+                if (q.type === 'fillBlanks') {
                   return (
                     <div className="col-span-1 md:col-span-2">
                       <input
+                        type="text"
                         className="w-full border rounded-lg p-3"
-                        value={hasAnswered(q.id) ? answers[q.id] : ''}
+                        // BUG FIX 1: Ensure controlled component with default value
+                        value={answers[q.id] || ''}
                         onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                        placeholder="Fill the blank"
+                        placeholder="Fill the blank with your answer"
                       />
                     </div>
                   );
@@ -384,8 +504,10 @@ const ExamPortal = () => {
                 <div className="text-xs text-slate-400 mt-2">Once submitted, you cannot change your answers.</div>
               </div>
               <div className="flex flex-col space-y-3">
-                <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleFinishExam}>Yes, Finish Exam</Button>
-                <Button variant="ghost" onClick={() => setShowConfirmFinish(false)}>Back to Exam</Button>
+                <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleFinishExam} disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting...' : 'Yes, Finish Exam'}
+                </Button>
+                <Button variant="ghost" onClick={() => setShowConfirmFinish(false)} disabled={isSubmitting}>Back to Exam</Button>
               </div>
             </motion.div>
           </div>
