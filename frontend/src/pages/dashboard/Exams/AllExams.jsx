@@ -239,22 +239,6 @@ export default function AllExams() {
                           </div>
                         )}
                       </div>
-
-                      {/* question type badges */}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {exam.config?.questionTypes?.mcq && (
-                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">MCQ</span>
-                        )}
-                        {exam.config?.questionTypes?.trueFalse && (
-                          <span className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">T/F</span>
-                        )}
-                        {exam.config?.questionTypes?.fillBlanks && (
-                          <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">Fill in</span>
-                        )}
-                        {exam.config?.questionTypes?.shortAns && (
-                          <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded">Short</span>
-                        )}
-                      </div>
                     </div>
                     <div className="text-right">
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
@@ -294,7 +278,7 @@ export default function AllExams() {
                   </div>
                   
                   {/* Question Types */}
-                  <div className="mt-4 pt-4 border-t border-border">
+                  <div className="pt-4 border-t border-border">
                     <div className="flex flex-wrap gap-2">
                       {exam.config?.questionTypes?.mcq && (
                         <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">MCQ</span>
@@ -313,24 +297,6 @@ export default function AllExams() {
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {/* Stats Summary */}
-        {!loading && exams.length > 0 && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-1">Total Exams</p>
-              <p className="text-2xl font-bold">{exams.length}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-1">Ready to Take</p>
-              <p className="text-2xl font-bold text-green-600">{exams.filter(e => e.status === "ready" && !e.result?.isCompleted).length}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-1">Completed</p>
-              <p className="text-2xl font-bold text-blue-600">{exams.filter(e => e.result?.isCompleted).length}</p>
-            </div>
           </div>
         )}
       </div>
