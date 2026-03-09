@@ -202,23 +202,23 @@ export default function ExamResults() {
     }
   }, [paramExamId]);
 
-  if (!effectiveResultData) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">No Results Found</h2>
-          <Button onClick={() => navigate('/dashboard/exams')}>Back to Exams</Button>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p>Loading results...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!effectiveResultData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">No Results Found</h2>
+          <Button onClick={() => navigate('/dashboard/exams')}>Back to Exams</Button>
         </div>
       </div>
     );
