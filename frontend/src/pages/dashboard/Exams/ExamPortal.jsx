@@ -23,14 +23,11 @@ const ExamPortal = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Track if exam has already been finished to prevent double-finishing
   const examFinishedRef = useRef(false);
   const fullscreenLockedRef = useRef(false);
 
-  // Helper function to check if question has been answered
   const hasAnswered = (id) => Object.prototype.hasOwnProperty.call(answers, id);
 
-  // Declare all hooks here - before any conditional returns
   useEffect(() => {
     if (!examId) {
       setError("No exam ID provided");
@@ -41,7 +38,6 @@ const ExamPortal = () => {
     const fetchExam = async () => {
       try {
         const response = await getExamWithAnswers(examId);
-        // Bug 3: Check if exam is already completed on load
         if(response.exam.result && response.exam.result.isCompleted) {
              navigate(`/dashboard/exams/results/${examId}`, {
                 state: { resultData: response.exam.result }
@@ -53,9 +49,8 @@ const ExamPortal = () => {
         setTimeLeft(response.exam.questions.length * 60);
       } catch (err) {
         console.error("Failed to fetch exam:", err);
-        // Handle the specific error code for completed exams if api returns 403
         if (err.response && (err.response.status === 403 || err.response.data.isCompleted)) {
-            navigate('/dashboard/exams'); // Or alert user
+            navigate('/dashboard/exams'); 
         } else {
             setError("Failed to load exam");
         }
@@ -81,7 +76,6 @@ const ExamPortal = () => {
     };
 
     const handleFullscreenChange = () => {
-      // If exam started and user exits fullscreen, lock them back in
       if (examStarted && !document.fullscreenElement && fullscreenLockedRef.current) {
         const elem = document.documentElement;
         if (elem.requestFullscreen) {
@@ -92,7 +86,6 @@ const ExamPortal = () => {
       }
     };
 
-    // Bug 5: Navigation Guards
     const handleBeforeUnload = (e) => {
       if (examStarted && !examFinishedRef.current) {
         e.preventDefault();
@@ -104,7 +97,6 @@ const ExamPortal = () => {
     const handlePopState = (e) => {
       if (examStarted && !examFinishedRef.current) {
         e.preventDefault();
-        // Force stay on page
         window.history.pushState(null, '', window.location.href);
         alert("You cannot go back during an active exam. Please finish the exam to exit.");
       }
@@ -136,19 +128,16 @@ const ExamPortal = () => {
       }, 1000);
       return () => clearInterval(timer);
     } else if (examData && examStarted && timeLeft <= 1 && !examFinishedRef.current) {
-      // Time's up - calculate and submit results directly
       examFinishedRef.current = true;
       handleFinishExamInternal();
     }
   }, [examData, answers, timeLeft, markedForReview]);
 
-  // Derived state from examData
   const questions = examData?.questions?.map((q, index) => ({
     ...q,
-    id: index + 1
+    displayId: index + 1 
   })) || [];
 
-  // Helper functions
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -171,26 +160,24 @@ const ExamPortal = () => {
       return;
     }
     
-    // Prevent double submission
     if(isSubmitting) return;
     setIsSubmitting(true);
 
-    // Calculate results
     const correctAnswers = questions.filter(q => {
-      if (!hasAnswered(q.id)) return false;
+      if (!hasAnswered(q._id)) return false;
       if (typeof q.correct === 'boolean') {
-        return answers[q.id] === q.correct;
+        return answers[q._id] === q.correct;
       }
-      return answers[q.id]?.toLowerCase() === q.correct?.toLowerCase();
+      return answers[q._id]?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
     }).length;
     
     const score = Math.round((correctAnswers / questions.length) * 100);
     
     const weakAreas = questions
-      .filter(q => hasAnswered(q.id) && (
+      .filter(q => hasAnswered(q._id) && (
         typeof q.correct === 'boolean' 
-          ? answers[q.id] !== q.correct 
-          : answers[q.id]?.toLowerCase() !== q.correct?.toLowerCase()
+          ? answers[q._id] !== q.correct 
+          : answers[q._id]?.toString().toLowerCase() !== q.correct?.toString().toLowerCase()
       ))
       .slice(0, 5);
     
@@ -202,16 +189,14 @@ const ExamPortal = () => {
       markedForReview: markedForReview.length,
       notAnswered: questions.length - Object.keys(answers).length,
       weakAreas,
-      allAnswers: answers,
+      answers: answers, 
       allQuestions: questions,
       examId: examData._id
     };
 
-    // Save result to database
     try {
       await saveExamResult(examData._id, resultData);
       
-      // Cleanup Logic
       examFinishedRef.current = true;
       setExamStarted(false);
       fullscreenLockedRef.current = false;
@@ -219,21 +204,18 @@ const ExamPortal = () => {
           document.exitFullscreen().catch(() => { });
       }
       
-      // Navigate to results
       navigate(`/dashboard/exams/results/${examData._id}`, { state: { resultData } });
 
     } catch (err) {
       console.error("Failed to save result:", err);
       alert("Failed to save results. Please check your connection.");
-      setIsSubmitting(false); // Allow retry only on error
+      setIsSubmitting(false);
     } 
   }, [questions, answers, timeLeft, markedForReview, navigate, examData, isSubmitting]);
 
   const handleFinishExam = useCallback(async () => {
     await handleFinishExamInternal();
   }, [handleFinishExamInternal]);
-
-  // ===== RENDER SECTION - All hooks declared above =====
 
   if (loading) {
     return (
@@ -289,9 +271,9 @@ const ExamPortal = () => {
   };
 
   const navigateTo = (newIdx) => {
-    const currentId = questions[currentQuestion].id;
-    if (!hasAnswered(currentId) && !visited.includes(currentId)) {
-      setVisited(prev => [...prev, currentId]);
+    const currentQ = questions[currentQuestion];
+    if (!hasAnswered(currentQ._id) && !visited.includes(currentQ._id)) {
+      setVisited(prev => [...prev, currentQ._id]);
     }
     setCurrentQuestion(newIdx);
   };
@@ -299,7 +281,7 @@ const ExamPortal = () => {
   const total = questions.length;
   const answeredCount = Object.keys(answers).length;
   const markedCount = markedForReview.length;
-  const answeredAndMarked = questions.filter(q => hasAnswered(q.id) && markedForReview.includes(q.id)).length;
+  const answeredAndMarked = questions.filter(q => hasAnswered(q._id) && markedForReview.includes(q._id)).length;
   const answeredOnly = answeredCount - answeredAndMarked;
   const notAnsweredCount = total - answeredCount;
 
@@ -346,7 +328,9 @@ const ExamPortal = () => {
         {/* Main Question Area */}
         <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
           <div className="max-w-4xl w-full bg-white rounded-2xl border p-10 shadow-sm relative min-h-[400px]">
-            <span className="absolute top-6 left-6 text-sm font-semibold text-slate-400">Question {currentQuestion + 1} of {questions.length}</span>
+            <span className="absolute top-6 left-6 text-sm font-semibold text-slate-400">
+              Question {questions[currentQuestion].displayId} of {questions.length}
+            </span>
 
             <h3 className="text-2xl font-medium mt-10 mb-8 text-slate-800">
               {questions[currentQuestion].text}
@@ -355,15 +339,15 @@ const ExamPortal = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(() => {
                 const q = questions[currentQuestion];
-                // MCQ (default)
+                
                 if (q.type === 'trueFalse') {
                   return ['True', 'False'].map((opt, idx) => {
                     const val = opt === 'True';
-                    const selected = hasAnswered(q.id) && answers[q.id] === val;
+                    const selected = hasAnswered(q._id) && answers[q._id] === val;
                     return (
                       <div
                         key={idx}
-                        onClick={() => setAnswers({ ...answers, [q.id]: val })}
+                        onClick={() => setAnswers({ ...answers, [q._id]: val })}
                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center space-x-3
                           ${selected ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 hover:border-slate-200 bg-slate-50 text-slate-600'}`}>
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selected ? 'border-primary' : 'border-slate-300'}`}>
@@ -381,9 +365,8 @@ const ExamPortal = () => {
                       <textarea
                         rows={3}
                         className="w-full border rounded-lg p-3"
-                        // BUG FIX 1: Ensure controlled component with default value
-                        value={answers[q.id] || ''}
-                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                        value={answers[q._id] || ''}
+                        onChange={(e) => setAnswers({ ...answers, [q._id]: e.target.value })}
                         placeholder="Type your answer here..."
                       />
                     </div>
@@ -396,9 +379,8 @@ const ExamPortal = () => {
                       <input
                         type="text"
                         className="w-full border rounded-lg p-3"
-                        // BUG FIX 1: Ensure controlled component with default value
-                        value={answers[q.id] || ''}
-                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                        value={answers[q._id] || ''}
+                        onChange={(e) => setAnswers({ ...answers, [q._id]: e.target.value })}
                         placeholder="Fill the blank with your answer"
                       />
                     </div>
@@ -409,11 +391,11 @@ const ExamPortal = () => {
                 return q.options?.map((option, idx) => (
                   <div
                     key={idx}
-                    onClick={() => setAnswers({ ...answers, [q.id]: option })}
+                    onClick={() => setAnswers({ ...answers, [q._id]: option })}
                     className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center space-x-3
-                      ${hasAnswered(q.id) && answers[q.id] === option ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 hover:border-slate-200 bg-slate-50 text-slate-600'}`}>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${hasAnswered(q.id) && answers[q.id] === option ? 'border-primary' : 'border-slate-300'}`}>
-                      {hasAnswered(q.id) && answers[q.id] === option && <div className="w-2.5 h-2.5 bg-primary rounded-full" />}
+                      ${hasAnswered(q._id) && answers[q._id] === option ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 hover:border-slate-200 bg-slate-50 text-slate-600'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${hasAnswered(q._id) && answers[q._id] === option ? 'border-primary' : 'border-slate-300'}`}>
+                      {hasAnswered(q._id) && answers[q._id] === option && <div className="w-2.5 h-2.5 bg-primary rounded-full" />}
                     </div>
                     <span className="font-medium">{option}</span>
                   </div>
@@ -425,16 +407,16 @@ const ExamPortal = () => {
               <div className="flex items-center space-x-3">
                 <Button
                   variant="outline"
-                  onClick={() => toggleMarkForReview(questions[currentQuestion].id)}
-                  className={markedForReview.includes(questions[currentQuestion].id) ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : ''}
+                  onClick={() => toggleMarkForReview(questions[currentQuestion]._id)}
+                  className={markedForReview.includes(questions[currentQuestion]._id) ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : ''}
                 >
                   <Flag className="mr-2 h-4 w-4" />
-                  {markedForReview.includes(questions[currentQuestion].id) ? 'Marked' : 'Mark for Review'}
+                  {markedForReview.includes(questions[currentQuestion]._id) ? 'Marked' : 'Mark for Review'}
                 </Button>
                 <Button
                   variant="ghost"
-                  disabled={!hasAnswered(questions[currentQuestion].id)}
-                  onClick={() => clearResponse(questions[currentQuestion].id)}
+                  disabled={!hasAnswered(questions[currentQuestion]._id)}
+                  onClick={() => clearResponse(questions[currentQuestion]._id)}
                 >
                   Clear Response
                 </Button>
@@ -464,14 +446,14 @@ const ExamPortal = () => {
           <div className="grid grid-cols-5 gap-2 overflow-y-auto mb-6">
             {questions.map((q, idx) => (
               <button
-                key={q.id}
+                key={q._id}
                 onClick={() => navigateTo(idx)}
                 className={`m-1 w-10 h-10 rounded-lg text-sm font-bold transition-all flex items-center justify-center
                   ${currentQuestion === idx ? 'ring-2 ring-black ring-offset-2 z-20' : ''}
-                  ${markedForReview.includes(q.id) ? 'bg-yellow-500 text-white' :
-                    hasAnswered(q.id) ? 'bg-green-500 text-white' : visited.includes(q.id) ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}
+                  ${markedForReview.includes(q._id) ? 'bg-yellow-500 text-white' :
+                    hasAnswered(q._id) ? 'bg-green-500 text-white' : visited.includes(q._id) ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}
               >
-                {idx + 1}
+                {q.displayId}
               </button>
             ))}
           </div>

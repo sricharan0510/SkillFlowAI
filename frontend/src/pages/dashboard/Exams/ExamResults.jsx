@@ -27,12 +27,48 @@ export default function ExamResults() {
   const [activeTab, setActiveTab] = useState('overview');
   const [reviewFilter, setReviewFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [fullExam, setFullExam] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [effectiveResultData, setEffectiveResultData] = useState(resultData);
+  const [loading, setLoading] = useState(!resultData); 
+  const [effectiveResultData, setEffectiveResultData] = useState(resultData || null);
   const itemsPerPage = 5;
 
-  // derive safe defaults so hooks order is constant
+  useEffect(() => {
+    const examId = resultData?.examId || paramExamId;
+    if (examId) {
+      const fetchFullExam = async () => {
+        try {
+          const response = await getExamWithAnswers(examId);
+          const fullExam = response.exam;
+          
+          if (fullExam && fullExam.result) {
+            setEffectiveResultData({
+              score: fullExam.result.score,
+              correctAnswers: fullExam.result.correctAnswers,
+              totalQuestions: fullExam.totalQuestions || fullExam.questions.length,
+              timeSpent: fullExam.result.timeSpent,
+              markedForReview: fullExam.result.markedForReview,
+              notAnswered: fullExam.result.notAnswered,
+              answers: fullExam.result.answers || {}, 
+              allQuestions: fullExam.questions || [],
+              examId: fullExam._id
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch exam with answers:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      if (!resultData || !resultData.allQuestions) {
+          fetchFullExam();
+      } else {
+          setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
+  }, [paramExamId, resultData]);
+
   const {
     score = 0,
     correctAnswers = 0,
@@ -40,49 +76,9 @@ export default function ExamResults() {
     timeSpent = 0,
     markedForReview = 0,
     notAnswered = 0,
-    weakAreas = [],
-    answers: resultAnswers = {},
-    allQuestions: originalQuestions = []
+    answers: allAnswers = {},
+    allQuestions = []
   } = effectiveResultData || {};
-
-  // Ensure allAnswers always exists
-  const allAnswers = effectiveResultData?.answers || resultAnswers || {};
-  const allQuestions = fullExam?.questions || originalQuestions || [];
-
-  const computeStats = (questions, answers) => {
-    let correctAnswers = 0;
-    let totalQuestions = questions.length;
-    let notAnswered = 0;
-    let markedForReview = 0; // Assuming not available from API
-    let timeSpent = 0; // Assuming not available from API
-    let score = 0;
-
-    questions.forEach(q => {
-      const questionId = q._id || q.id;
-      const userAnswer = answers[questionId];
-      if (userAnswer === undefined || userAnswer === null) {
-        notAnswered++;
-      } else {
-        const isCorrect = typeof q.correct === 'boolean'
-          ? userAnswer === q.correct
-          : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
-        if (isCorrect) correctAnswers++;
-      }
-    });
-
-    score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-
-    return {
-      score,
-      correctAnswers,
-      totalQuestions,
-      timeSpent,
-      markedForReview,
-      notAnswered,
-      answers,
-      allQuestions: questions
-    };
-  };
 
   const percentage = score;
   const timeSpentMin = Math.floor(timeSpent / 60);
@@ -102,22 +98,24 @@ export default function ExamResults() {
     const categories = {};
     allQuestions.forEach(q => {
       const category = q.type || 'mcq';
-      const questionId = q._id || q.id;
+      const questionId = q._id; 
       const userAnswer = allAnswers[questionId];
       
-      // Initialize category if not exists
       if (!categories[category]) {
         categories[category] = { total: 0, correct: 0, answered: 0 };
       }
       
       categories[category].total++;
       
-      // Only count answered questions
-      if (userAnswer !== undefined && userAnswer !== null) {
+      if (userAnswer !== undefined && userAnswer !== null && userAnswer !== "") {
         categories[category].answered++;
-        const isCorrect = typeof q.correct === 'boolean'
-          ? userAnswer === q.correct
-          : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+        let isCorrect = false;
+        if (typeof q.correct === 'boolean') {
+             isCorrect = userAnswer === q.correct;
+        } else {
+             isCorrect = userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+        }
+        
         if (isCorrect) categories[category].correct++;
       }
     });
@@ -126,25 +124,23 @@ export default function ExamResults() {
 
   const filteredReviewQuestions = useMemo(() => {
     return allQuestions.filter(q => {
-      const questionId = q._id || q.id;
+      const questionId = q._id;
       const userAnswer = allAnswers[questionId];
-      const isAnswered = userAnswer !== undefined && userAnswer !== null;
+      const isAnswered = userAnswer !== undefined && userAnswer !== null && userAnswer !== "";
       
-      if (!isAnswered) {
-        // Not answered question
-        if (reviewFilter === 'all' || reviewFilter === 'not-answered') return true;
-        return false;
+      let isCorrect = false;
+      if (isAnswered) {
+         if (typeof q.correct === 'boolean') {
+             isCorrect = userAnswer === q.correct;
+         } else {
+             isCorrect = userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+         }
       }
-      
-      // Answered question - check if correct
-      const isCorrect = typeof q.correct === 'boolean'
-        ? userAnswer === q.correct
-        : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
 
-      if (reviewFilter === 'correct') return isCorrect;
-      if (reviewFilter === 'wrong') return !isCorrect;
-      if (reviewFilter === 'not-answered') return false;
-      return true; // 'all'
+      if (reviewFilter === 'correct') return isAnswered && isCorrect;
+      if (reviewFilter === 'wrong') return isAnswered && !isCorrect;
+      if (reviewFilter === 'not-answered') return !isAnswered;
+      return true; 
     });
   }, [allQuestions, allAnswers, reviewFilter]);
 
@@ -154,53 +150,10 @@ export default function ExamResults() {
     currentPage * itemsPerPage
   );
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-  };
-
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
-
-  useEffect(() => {
-    const examId = resultData?.examId || paramExamId;
-    if (examId) {
-      const fetchFullExam = async () => {
-        try {
-          const response = await getExamWithAnswers(examId);
-          setFullExam(response.exam);
-          
-          // If no resultData from navigation, use the result from the fetched exam
-          if (!resultData && response.exam?.result?.isCompleted) {
-            const result = response.exam.result;
-            // Set the effectiveResultData with all answer information
-            setEffectiveResultData({
-              ...result,
-              answers: result.answers || {},
-              allQuestions: response.exam.questions || [],
-              examId
-            });
-          } else if (resultData && !effectiveResultData?.answers) {
-            // If resultData exists but answers are not set, set them from resultData
-            setEffectiveResultData({
-              ...resultData,
-              answers: resultData.answers || {},
-              allQuestions: response.exam.questions || []
-            });
-          }
-        } catch (error) {
-          console.error("Failed to fetch exam with answers:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchFullExam();
-    } else {
-      setLoading(false);
-    }
-  }, [paramExamId]);
 
   if (loading) {
     return (
@@ -223,7 +176,6 @@ export default function ExamResults() {
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
@@ -318,7 +270,6 @@ export default function ExamResults() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {Object.entries(categoryPerformance).length > 0 ? (
                     Object.entries(categoryPerformance).map(([category, stats]) => {
-                      // Only show if there are answered questions
                       if (stats.answered === 0) return null;
                       
                       const catPercentage = Math.round((stats.correct / stats.answered) * 100);
@@ -381,15 +332,17 @@ export default function ExamResults() {
                 <div className="space-y-4 mb-8">
                   {paginatedQuestions.length > 0 ? (
                     paginatedQuestions.map((q, idx) => {
-                      const questionId = q._id || q.id;
+                      const questionId = q._id;
                       const userAnswer = allAnswers[questionId];
-                      const isAnswered = userAnswer !== undefined && userAnswer !== null;
+                      const isAnswered = userAnswer !== undefined && userAnswer !== null && userAnswer !== "";
                       let isCorrect = false;
                       
                       if (isAnswered) {
-                        isCorrect = typeof q.correct === 'boolean'
-                          ? userAnswer === q.correct
-                          : userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+                        if (typeof q.correct === 'boolean') {
+                            isCorrect = userAnswer === q.correct;
+                        } else {
+                            isCorrect = userAnswer?.toString().toLowerCase() === q.correct?.toString().toLowerCase();
+                        }
                       }
                       
                       const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
@@ -422,13 +375,13 @@ export default function ExamResults() {
                                 <div className="text-slate-600">
                                   <span className="font-semibold text-slate-900">Your Answer:</span> {' '}
                                   <span className={isAnswered ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-500'}>
-                                    {isAnswered ? userAnswer : 'Not Answered'}
+                                    {isAnswered ? userAnswer.toString() : 'Not Answered'}
                                   </span>
                                 </div>
-                                {isAnswered && !isCorrect && (
+                                {(!isCorrect || !isAnswered) && (
                                   <div className="text-slate-600">
                                     <span className="font-semibold text-green-700">Correct Answer:</span> {' '}
-                                    <span className="text-green-700">{q.correct !== undefined ? q.correct : 'Not specified'}</span>
+                                    <span className="text-green-700">{q.correct !== undefined ? q.correct.toString() : 'Not specified'}</span>
                                   </div>
                                 )}
                                 <div className="text-slate-600 pt-1">
