@@ -10,7 +10,7 @@ const {
 
 router.post("/start", startInterview);
 router.post("/answer", submitAnswer);
-router.get("/:id", getInterview);
 router.post("/finish", finishInterview);
+router.get("/:id", getInterview);
 
 module.exports = router;
