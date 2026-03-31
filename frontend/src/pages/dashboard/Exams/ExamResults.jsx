@@ -22,53 +22,64 @@ export default function ExamResults() {
   const location = useLocation();
   const navigate = useNavigate();
   const { examId: paramExamId } = useParams();
-  const { resultData } = location.state || {};
+  
+  // Safe access to location state
+  const stateResultData = location.state?.resultData;
 
   const [activeTab, setActiveTab] = useState('overview');
   const [reviewFilter, setReviewFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(!resultData); 
-  const [effectiveResultData, setEffectiveResultData] = useState(resultData || null);
+  
+  // Initialize loading: true if we don't have full data (refresh case), false if we do (navigation case)
+  const [loading, setLoading] = useState(!stateResultData?.allQuestions);
+  const [effectiveResultData, setEffectiveResultData] = useState(stateResultData || null);
+  
   const itemsPerPage = 5;
 
   useEffect(() => {
-    const examId = resultData?.examId || paramExamId;
-    if (examId) {
-      const fetchFullExam = async () => {
-        try {
-          const response = await getExamWithAnswers(examId);
-          const fullExam = response.exam;
-          
-          if (fullExam && fullExam.result) {
-            setEffectiveResultData({
-              score: fullExam.result.score,
-              correctAnswers: fullExam.result.correctAnswers,
-              totalQuestions: fullExam.totalQuestions || fullExam.questions.length,
-              timeSpent: fullExam.result.timeSpent,
-              markedForReview: fullExam.result.markedForReview,
-              notAnswered: fullExam.result.notAnswered,
-              answers: fullExam.result.answers || {}, 
-              allQuestions: fullExam.questions || [],
-              examId: fullExam._id
-            });
-          }
-        } catch (error) {
-          console.error("Failed to fetch exam with answers:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
+    const examId = stateResultData?.examId || paramExamId;
+
+    const fetchFullExam = async () => {
+      if (!examId) return;
       
-      if (!resultData || !resultData.allQuestions) {
-          fetchFullExam();
+      try {
+        setLoading(true);
+        const response = await getExamWithAnswers(examId);
+        const fullExam = response.exam;
+        
+        if (fullExam && fullExam.result) {
+          // Normalize the data structure from API to match state structure
+          setEffectiveResultData({
+            score: fullExam.result.score,
+            correctAnswers: fullExam.result.correctAnswers,
+            totalQuestions: fullExam.totalQuestions || fullExam.questions?.length || 0,
+            timeSpent: fullExam.result.timeSpent,
+            markedForReview: fullExam.result.markedForReview,
+            notAnswered: fullExam.result.notAnswered,
+            answers: fullExam.result.answers || {}, 
+            allQuestions: fullExam.questions || [], // Ensure this is populated
+            examId: fullExam._id
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch exam with answers:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!effectiveResultData || !effectiveResultData.allQuestions || effectiveResultData.allQuestions.length === 0) {
+      if (examId) {
+        fetchFullExam();
       } else {
-          setLoading(false);
+        setLoading(false);
       }
     } else {
       setLoading(false);
     }
-  }, [paramExamId, resultData]);
+  }, [paramExamId, stateResultData]); // Depend on stable values
 
+  // Destructure with safe defaults
   const {
     score = 0,
     correctAnswers = 0,
@@ -96,6 +107,8 @@ export default function ExamResults() {
 
   const categoryPerformance = useMemo(() => {
     const categories = {};
+    if (!allQuestions.length) return categories;
+
     allQuestions.forEach(q => {
       const category = q.type || 'mcq';
       const questionId = q._id; 
@@ -123,6 +136,8 @@ export default function ExamResults() {
   }, [allQuestions, allAnswers]);
 
   const filteredReviewQuestions = useMemo(() => {
+    if (!allQuestions.length) return [];
+
     return allQuestions.filter(q => {
       const questionId = q._id;
       const userAnswer = allAnswers[questionId];

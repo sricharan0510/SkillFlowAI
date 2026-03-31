@@ -30,6 +30,7 @@ connectDB();
 app.use("/api/auth", require("./src/routes/authRoutes"));
 app.use("/api/materials", require("./src/routes/materialRoutes"));
 app.use("/api/exams", require("./src/routes/examRoutes"));
+app.use("/api/interview", require("./routes/interviewRoutes"));
 
 // ------------------ SERVER ----------------------
 const PORT = process.env.PORT || 5000;
