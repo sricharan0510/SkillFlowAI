@@ -5,12 +5,15 @@ const {
   startInterview,
   submitAnswer,
   getInterview,
-  finishInterview
+  finishInterview,
+  getUserInterviews 
 } = require("../controllers/interviewController");
+
+router.get("/", getUserInterviews); 
 
 router.post("/start", startInterview);
 router.post("/answer", submitAnswer);
-router.post("/finish", finishInterview);
 router.get("/:id", getInterview);
+router.post("/finish", finishInterview);
 
 module.exports = router;

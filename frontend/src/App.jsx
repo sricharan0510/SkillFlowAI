@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+
 import HomePage from './pages/auth/HomePage'
 import SignInPage from './pages/auth/SignInPage'
 import SignUpPage from './pages/auth/SignUpPage'
@@ -10,16 +11,22 @@ import OAuthRedirect from './pages/auth/OAuthRedirect'
 
 import DashboardHome from './pages/dashboard/DashboardHome.jsx'
 import MyLibrary from './pages/dashboard/MyLibrary.jsx'
+
 import Exams from './pages/dashboard/Exams/Exams.jsx'
 import AllExams from './pages/dashboard/Exams/AllExams.jsx'
 import ExamPortal from './pages/dashboard/Exams/ExamPortal.jsx'
 import ExamResults from './pages/dashboard/Exams/ExamResults.jsx'
+
 
 import SmartNotes from './pages/dashboard/Notes/SmartNotes.jsx'
 import AllNotes from './pages/dashboard/Notes/AllNotes.jsx'
 import NoteDetail from './pages/dashboard/Notes/NoteDetail.jsx'
 
 import MockInterviews from './pages/dashboard/MockInterviews/MockInterviews.jsx'
+import InterviewPortal from './pages/dashboard/MockInterviews/InterviewPortal.jsx'
+import InterviewResult from './pages/dashboard/MockInterviews/InterviewResult.jsx'
+import AllInterviews from './pages/dashboard/MockInterviews/AllInterviews.jsx'
+
 import Performance from './pages/dashboard/Performance.jsx'
 import Settings from './pages/dashboard/Settings.jsx'
 
@@ -50,12 +57,15 @@ function App() {
             <Route path="/dashboard/exams" element={<Exams />} />
             <Route path="/dashboard/exams/all" element={<AllExams />} />
             <Route path="/dashboard/exams/start" element={<ExamPortal />} />
-            {/* result route accepts optional examId param for direct links */}
             <Route path="/dashboard/exams/results/:examId?" element={<ExamResults />} />
+
             <Route path="/dashboard/interviews" element={<MockInterviews />} />
+            <Route path="/dashboard/interviews/all" element={<AllInterviews />} />
+            <Route path="/dashboard/interviews/start" element={<InterviewPortal />} />
+            <Route path="/dashboard/interviews/results/:id?" element={<InterviewResult />} />
+
             <Route path="/dashboard/performance" element={<Performance />} />
             <Route path="/dashboard/settings" element={<Settings />} />
-
           </Routes>
         </AuthProvider>
       </ThemeProvider>

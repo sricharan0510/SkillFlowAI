@@ -192,7 +192,6 @@ exports.generateExamQuestions = async (text, config, numQuestions = 20) => {
       const response = await result.response;
       const responseText = response.text().trim();
 
-      // Try to parse the JSON
       try {
         let responseText = response.text().trim();
         
@@ -238,4 +237,42 @@ exports.generateExamQuestions = async (text, config, numQuestions = 20) => {
   }
 
   throw new Error("All AI models failed to generate exam questions. Please check your API Key billing status.");
+};
+
+exports.generateText = async (prompt) => {
+  const candidateModels = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro"
+  ];
+
+  for (const modelName of candidateModels) {
+    try {
+      console.log(`[Interview AI] Trying model: ${modelName}...`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      
+      console.log(`[Interview AI] Success with ${modelName}!`);
+      return response.text();
+
+    } catch (error) {
+      const errorMsg = error.message || "";
+      const isQuotaError = errorMsg.includes("429") || errorMsg.includes("limit");
+      const isNotFoundError = errorMsg.includes("404") || errorMsg.includes("not found");
+      const isOverloaded = errorMsg.includes("503") || errorMsg.includes("overloaded");
+
+      if (isQuotaError || isNotFoundError || isOverloaded) {
+        console.warn(`[Interview AI] Failed with ${modelName}. Switching to next...`);
+        continue;
+      }
+
+      console.error(`[Interview AI] Critical Error (${modelName}):`, error.message);
+      throw error;
+    }
+  }
+
+  throw new Error("All AI models failed. Please check your API Key billing status.");
 };

@@ -72,3 +72,15 @@ exports.finishInterview = async (req, res) => {
     res.status(500).json({ error: error.message || "Failed to generate interview report." });
   }
 };
+
+exports.getUserInterviews = async (req, res) => {
+  try {
+    const Interview = require("../models/interviewModel");
+    // Fetches all interviews, sorted by the newest first
+    const interviews = await Interview.find().sort({ createdAt: -1 });
+    res.status(200).json(interviews);
+  } catch (error) {
+    console.error("Get History Error:", error);
+    res.status(500).json({ error: "Failed to fetch interview history" });
+  }
+};
