@@ -82,7 +82,7 @@ exports.generateSummaryAI = async (text, mode = "entire", topic = "") => {
       const response = await result.response;
 
       console.log(`Success with ${modelName}!`);
-      return response.text();
+      return await response.text();
 
     } catch (error) {
       const errorMsg = error.message || "";
@@ -190,19 +190,19 @@ exports.generateExamQuestions = async (text, config, numQuestions = 20) => {
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const responseText = response.text().trim();
+      const responseText = (await response.text()).trim();
 
       try {
-        let responseText = response.text().trim();
+        let cleanedText = responseText;
         
         // Remove any markdown code blocks if present
-        if (responseText.startsWith('```json')) {
-          responseText = responseText.replace(/```json\s*/, '').replace(/```\s*$/, '');
-        } else if (responseText.startsWith('```')) {
-          responseText = responseText.replace(/```\s*/, '').replace(/```\s*$/, '');
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.replace(/```json\s*/, '').replace(/```\s*$/, '');
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.replace(/```\s*/, '').replace(/```\s*$/, '');
         }
         
-        const questions = JSON.parse(responseText);
+        const questions = JSON.parse(cleanedText);
         if (Array.isArray(questions) && questions.length > 0) {
           // Validate each question has required fields
           const validQuestions = questions.filter(q => 
@@ -256,7 +256,7 @@ exports.generateText = async (prompt) => {
       const response = await result.response;
       
       console.log(`[Interview AI] Success with ${modelName}!`);
-      return response.text();
+      return await response.text();
 
     } catch (error) {
       const errorMsg = error.message || "";

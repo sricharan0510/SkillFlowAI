@@ -2,10 +2,74 @@ const Interview = require("../models/interviewModel");
 const aiService = require("../utils/aiService"); 
 
 const parseAIResponse = (text) => {
+  const normalizeJSON = (raw) => {
+    let cleaned = raw.trim();
+
+    if (!cleaned) {
+      throw new Error("Empty AI response");
+    }
+
+    cleaned = cleaned.replace(/```(?:json)?\n?/, "").replace(/```\s*$/, "").trim();
+    cleaned = cleaned.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+
+    const startIndex = Math.min(
+      ...[cleaned.indexOf('{'), cleaned.indexOf('[')].map((idx) => (idx === -1 ? Infinity : idx))
+    );
+    const endIndex = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+
+    if (startIndex === Infinity || endIndex === -1 || endIndex < startIndex) {
+      throw new Error("No JSON structure found in AI response");
+    }
+
+    cleaned = cleaned.slice(startIndex, endIndex + 1).trim();
+    cleaned = cleaned.replace(/,\s*(?=[}\]])/g, "");
+
+    let result = "";
+    let inString = false;
+    let escaped = false;
+
+    const nextNonWhitespace = (str, pos) => {
+      for (let i = pos; i < str.length; i += 1) {
+        if (!/\s/.test(str[i])) return str[i];
+      }
+      return null;
+    };
+
+    for (let i = 0; i < cleaned.length; i += 1) {
+      const char = cleaned[i];
+
+      if (char === '"' && !escaped) {
+        if (!inString) {
+          inString = true;
+          result += char;
+        } else {
+          const nextChar = nextNonWhitespace(cleaned, i + 1);
+          const isClosingQuote = nextChar === null || [',', '}', ']'].includes(nextChar);
+          if (isClosingQuote) {
+            inString = false;
+            result += char;
+          } else {
+            result += '\\"';
+          }
+        }
+      } else {
+        result += char;
+        escaped = char === '\\' && !escaped;
+      }
+
+      if (char !== '\\') {
+        escaped = false;
+      }
+    }
+
+    return result;
+  };
+
   try {
     const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
     if (!match) throw new Error("No JSON structure found in AI response");
-    return JSON.parse(match[0]);
+    const repaired = normalizeJSON(match[0]);
+    return JSON.parse(repaired);
   } catch (error) {
     console.error("JSON Parsing failed for AI output:", text);
     throw new Error("Failed to parse AI response.");
@@ -170,7 +234,18 @@ Format strictly as:
 `;
 
   const aiResponse = await aiService.generateText(prompt);
-  const report = parseAIResponse(aiResponse);
+  let report;
+
+  try {
+    report = parseAIResponse(aiResponse);
+  } catch (error) {
+    console.error("[Interview] Final report parse failed:", error.message);
+    report = {
+      strengths: ["Unable to generate strengths due to AI response parsing issues."],
+      weaknesses: ["AI final report generation failed. Please retry or try again later."],
+      recommendations: ["Retry generating the final report."]
+    };
+  }
 
   session.status = "completed";
   session.report = report;

@@ -17,8 +17,10 @@ export default function InterviewPortal() {
 
   // Voice State
   const [isRecording, setIsRecording] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef(null);
+  const isRecordingRef = useRef(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -47,30 +49,54 @@ export default function InterviewPortal() {
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.onresult = (event) => {
-        let currentTranscript = "";
-        for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        setTranscript(currentTranscript);
-      };
-      recognitionRef.current.onerror = () => setIsRecording(false);
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+      return;
     }
+
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'en-US';
+    recognitionRef.current.maxAlternatives = 1;
+
+    recognitionRef.current.onresult = (event) => {
+      let currentTranscript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        currentTranscript += event.results[i][0].transcript;
+      }
+      setTranscript(currentTranscript);
+    };
+
+    recognitionRef.current.onerror = (event) => {
+      console.error('Speech recognition error:', event.error || event.message);
+      isRecordingRef.current = false;
+      setIsRecording(false);
+    };
+
+    recognitionRef.current.onend = () => {
+      if (isRecordingRef.current) {
+        recognitionRef.current?.start();
+      }
+    };
   }, []);
 
   const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      setIsRecording(false);
-    } else {
-      setTranscript("");
-      recognitionRef.current?.start();
-      setIsRecording(true);
+    if (!speechSupported) {
+      return alert('Speech recognition is not supported by your browser.');
     }
+
+    if (isRecordingRef.current) {
+      recognitionRef.current?.stop();
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      return;
+    }
+
+    setTranscript("");
+    isRecordingRef.current = true;
+    setIsRecording(true);
+    recognitionRef.current?.start();
   };
 
   const handleSubmit = async () => {
@@ -83,13 +109,20 @@ export default function InterviewPortal() {
       setTranscript("");
 
       if (data.completed) {
-        await finishInterviewSession(sessionId);
-        navigate(`/dashboard/interviews/results/${sessionId}`);
-      } else {
-        setCurrentQuestion(data.question);
-        setQuestionIndex(data.index);
-        setSessionData(prev => ({ ...prev, questions: prev.questions.map((q, i) => i === data.index - 1 ? { ...q, answer: transcript, feedback: data.feedback } : q) }));
+        setSessionData(prev => prev ? { ...prev, status: "completed" } : prev);
+        try {
+          await finishInterviewSession(sessionId);
+          navigate(`/dashboard/interviews/results/${sessionId}`);
+        } catch (finishError) {
+          console.error("Finish interview failed:", finishError);
+          alert("Final report generation failed. Please refresh or try again.");
+        }
+        return;
       }
+
+      setCurrentQuestion(data.question);
+      setQuestionIndex(data.index);
+      setSessionData(prev => ({ ...prev, questions: prev.questions.map((q, i) => i === data.index - 1 ? { ...q, answer: transcript, feedback: data.feedback } : q) }));
     } catch (error) {
       alert("Failed to submit.");
     } finally {
@@ -127,13 +160,17 @@ export default function InterviewPortal() {
             <textarea 
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Click the microphone to speak, or type your answer..."
-              className="flex-1 w-full p-6 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:ring-2 focus:ring-primary/20 text-slate-700"
+              placeholder={isRecording ? "Listening... your speech will appear here." : "Click the microphone to speak, or type your answer..."}
+              disabled={isRecording}
+              className="flex-1 w-full p-6 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
             {isRecording && (
               <div className="absolute top-4 right-4 flex items-center gap-2 text-red-500 text-xs font-bold animate-pulse">
                 <div className="h-2 w-2 rounded-full bg-red-500"></div> Recording
               </div>
+            )}
+            {!speechSupported && (
+              <p className="mt-3 text-sm text-rose-600">Speech recognition is not supported by your browser. Please type your answer instead.</p>
             )}
           </div>
 
