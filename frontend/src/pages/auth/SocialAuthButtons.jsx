@@ -13,7 +13,7 @@ const GoogleIcon = ({ className }) => (
 const SocialAuthButtons = () => {
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE}/auth/google`;
+    window.location.href = `${API_BASE}/api/auth/google`;;
   }
 
   return (

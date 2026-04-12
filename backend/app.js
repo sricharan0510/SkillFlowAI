@@ -14,11 +14,16 @@ configurePassport();
 
 // ------------------ MIDDLEWARE ------------------
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',  
-  credentials: true,  
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
 };
 app.use(cors(corsOptions));
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: false,
+    contentSecurityPolicy: false,
+  })
+);
 app.use(express.json());
 app.use(passport.initialize());
 app.use(cookieParser());
