@@ -4,6 +4,12 @@ exports.startInterview = async (req, res) => {
   try {
     const { role, difficulty, experience, number = 5 } = req.body;
 
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
+
     if (!role) {
       return res.status(400).json({ error: "Role is required to start an interview." });
     }
@@ -13,7 +19,7 @@ exports.startInterview = async (req, res) => {
       role,
       difficulty,
       experience,
-      userId: req.user?.id
+      userId // Safely pass the resolved userId
     });
 
     res.status(201).json(session);
@@ -26,6 +32,11 @@ exports.startInterview = async (req, res) => {
 exports.submitAnswer = async (req, res) => {
   try {
     const { sessionId, answer } = req.body;
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
 
     if (!sessionId || !answer) {
       return res.status(400).json({ error: "sessionId and answer are required." });
@@ -34,7 +45,7 @@ exports.submitAnswer = async (req, res) => {
     const result = await interviewService.submitAnswer({
       sessionId,
       answer,
-      userId: req.user?.id
+      userId
     });
 
     res.status(200).json(result);
@@ -48,10 +59,15 @@ exports.submitAnswer = async (req, res) => {
 exports.getInterview = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
 
     if (!id) return res.status(400).json({ error: "Interview ID is required." });
 
-    const session = await interviewService.getInterview(id, req.user?.id);
+    const session = await interviewService.getInterview(id, userId);
     res.status(200).json(session);
   } catch (error) {
     console.error("[Controller] Get Interview Error:", error.message || error);
@@ -62,12 +78,17 @@ exports.getInterview = async (req, res) => {
 exports.finishInterview = async (req, res) => {
   try {
     const { sessionId } = req.body;
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
 
     if (!sessionId) {
       return res.status(400).json({ error: "sessionId is required." });
     }
 
-    const report = await interviewService.finishInterview(sessionId, req.user?.id);
+    const report = await interviewService.finishInterview(sessionId, userId);
     res.status(200).json(report);
   } catch (error) {
     console.error("[Controller] Finish Interview Error:", error.message || error);
@@ -77,9 +98,14 @@ exports.finishInterview = async (req, res) => {
 
 exports.getUserInterviews = async (req, res) => {
   try {
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
+
     const Interview = require("../models/interviewModel");
-    const interviews = await Interview.find({ userId: req.user?.id })
-      .sort({ createdAt: -1 });
+    const interviews = await Interview.find({ userId }).sort({ createdAt: -1 });
     res.status(200).json(interviews);
   } catch (error) {
     console.error("Get History Error:", error);

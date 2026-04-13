@@ -8,8 +8,13 @@ import {
 import { uploadMaterial, getMaterials } from "../../../services/materialApi";
 import { startInterviewSession, getUserInterviews } from "../../../services/interviewApi";
 
+// FIX 1: Import useAuth to ensure tokens are ready
+import { useAuth } from "../../../contexts/AuthContext";
+
 export default function MockInterviews() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth(); // <--- FIX 2: Destructure auth state
+
   const [step, setStep] = useState(1);
   const [source, setSource] = useState("upload");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -28,20 +33,20 @@ export default function MockInterviews() {
     number: 5
   });
 
+  // FIX 3: Wait for authLoading to finish before fetching
   useEffect(() => {
-    loadResumes();
-    loadHistory();
-  }, []);
+    if (!authLoading && user) {
+      loadResumes();
+      loadHistory();
+    }
+  }, [authLoading, user]);
 
   const loadResumes = async () => {
     try {
       setLoading(true);
       const response = await getMaterials("resume");
-
       const allMaterials = response?.materials || [];
-
       const strictlyResumes = allMaterials.filter(m => m.category === "resume");
-
       setResumes(strictlyResumes);
     } catch (error) {
       const message = error?.message || error?.response?.message || JSON.stringify(error);
@@ -75,7 +80,6 @@ export default function MockInterviews() {
 
       formData.append("pdf", file);
       formData.append("title", file.name);
-
       formData.append("category", "resume");
 
       const response = await uploadMaterial(formData);
@@ -100,7 +104,7 @@ export default function MockInterviews() {
       setGenerating(true);
       const payload = {
         ...config,
-        number: parseInt(config.number, 10), // Fix: Ensure number is an integer
+        number: parseInt(config.number, 10),
         role: config.jobDescription ? `${config.role} (JD: ${config.jobDescription})` : config.role,
         resumeId: uploadedFile?._id || resumes.find(r => r.title === selectedFile)?._id
       };
@@ -240,6 +244,9 @@ export default function MockInterviews() {
                     </div>
                   ) : (
                     <div className="border border-border rounded-xl max-h-48 overflow-y-auto divide-y divide-border">
+                      {resumes.length === 0 && !loading && (
+                        <p className="text-sm text-muted-foreground p-4 text-center">No resumes found in library.</p>
+                      )}
                       {resumes.map((file) => (
                         <div key={file._id} onClick={() => setSelectedFile(file.title)} className={`p-3 flex items-center justify-between cursor-pointer hover:bg-muted/50 ${selectedFile === file.title ? "bg-muted" : ""}`}>
                           <div className="flex items-center gap-3"><FileText className="h-4 w-4 text-muted-foreground" /><span className="text-sm">{file.title}</span></div>
@@ -266,6 +273,9 @@ export default function MockInterviews() {
           <div className="bg-card border border-border rounded-xl p-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2"><History className="h-4 w-4" /> Recent Interviews</h3>
             <div className="space-y-4">
+              {interviewHistory.length === 0 && !loading && (
+                <p className="text-sm text-muted-foreground">No recent interviews.</p>
+              )}
               {interviewHistory.slice(0, 4).map((session) => (
                 <div key={session._id} onClick={() => handleHistoryClick(session)} className="flex justify-between items-start text-sm border-b border-border pb-3 last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 p-2 rounded transition">
                   <div>
