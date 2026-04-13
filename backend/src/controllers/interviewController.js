@@ -51,8 +51,9 @@ exports.submitAnswer = async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error("[Controller] Submit Answer Error:", error.message || error);
-    const statusCode = error.message.includes("not found") || error.message.includes("completed") ? 400 : 500;
-    res.status(statusCode).json({ error: error.message || "Failed to submit answer. Please try again." });
+    const msg = error.message || "";
+    const statusCode = msg.includes("not found") || msg.includes("completed") ? 400 : 500;
+    res.status(statusCode).json({ error: msg || "Failed to submit answer. Please try again." });
   }
 };
 

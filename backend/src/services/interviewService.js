@@ -127,6 +127,8 @@ Format strictly as:
     session.status = "completed";
   }
 
+  // Required: tell Mongoose the nested questions array was mutated
+  session.markModified('questions');
   await session.save();
 
   if (isFinished) {
