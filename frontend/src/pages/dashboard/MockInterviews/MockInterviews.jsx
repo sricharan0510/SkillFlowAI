@@ -38,13 +38,14 @@ export default function MockInterviews() {
       setLoading(true);
       const response = await getMaterials("resume");
 
-      const allMaterials = response.materials || response || [];
+      const allMaterials = response?.materials || [];
 
       const strictlyResumes = allMaterials.filter(m => m.category === "resume");
 
       setResumes(strictlyResumes);
     } catch (error) {
-      console.error("Failed to load resumes:", error);
+      const message = error?.message || error?.response?.message || JSON.stringify(error);
+      console.error("Failed to load resumes:", message);
     } finally {
       setLoading(false);
     }
@@ -84,8 +85,9 @@ export default function MockInterviews() {
       setSelectedFile(file.name);
 
     } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Failed to upload resume. Please check your network connection.");
+      const message = error?.message || error?.response?.message || JSON.stringify(error);
+      console.error("Upload failed:", message);
+      alert("Failed to upload resume. " + (message || "Please check your network connection."));
     } finally {
       setLoading(false);
     }
@@ -106,7 +108,7 @@ export default function MockInterviews() {
       const data = await startInterviewSession(payload);
       navigate('/dashboard/interviews/start', { state: { sessionId: data.sessionId } });
     } catch (error) {
-      const errorMessage = error.error || error.message || typeof error === 'string' ? error : "Unknown error occurred";
+      const errorMessage = error?.error || error?.message || (typeof error === 'string' ? error : "Unknown error occurred");
       alert("Failed to initialize: " + errorMessage);
       setGenerating(false);
     }
@@ -186,6 +188,8 @@ export default function MockInterviews() {
                           onChange={(e) => setConfig({ ...config, difficulty: e.target.value })}
                           className="w-full mt-2 p-3 bg-background border border-border rounded-lg outline-none focus:ring-2 focus:ring-foreground/20"
                         >
+                          <option value="basic">Basic</option>
+                          <option value="easy">Easy</option>
                           <option value="medium">Medium</option>
                           <option value="hard">Hard</option>
                           <option value="expert">Expert</option>

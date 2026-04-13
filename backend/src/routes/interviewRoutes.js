@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authMiddleware = require("../middleware/authMiddleware");
 
 const {
   startInterview,
@@ -9,11 +10,11 @@ const {
   getUserInterviews 
 } = require("../controllers/interviewController");
 
-router.get("/", getUserInterviews); 
+router.get("/", authMiddleware, getUserInterviews);
 
-router.post("/start", startInterview);
-router.post("/answer", submitAnswer);
-router.get("/:id", getInterview);
-router.post("/finish", finishInterview);
+router.post("/start", authMiddleware, startInterview);
+router.post("/answer", authMiddleware, submitAnswer);
+router.get("/:id", authMiddleware, getInterview);
+router.post("/finish", authMiddleware, finishInterview);
 
 module.exports = router;

@@ -76,7 +76,7 @@ const parseAIResponse = (text) => {
   }
 };
 
-exports.startInterview = async ({ number = 5, role, difficulty, experience }) => {
+exports.startInterview = async ({ number = 5, role, difficulty, experience, userId }) => {
   const prompt = `
 You are an expert technical interviewer. Generate EXACTLY ${number} interview questions.
 Role: ${role}
@@ -102,6 +102,7 @@ Format strictly as:
   }
 
   const session = await Interview.create({
+    userId,
     role,
     difficulty,
     experience,
@@ -119,10 +120,10 @@ Format strictly as:
   };
 };
 
-exports.submitAnswer = async ({ sessionId, answer }) => {
-  const session = await Interview.findById(sessionId);
+exports.submitAnswer = async ({ sessionId, answer, userId }) => {
+  const session = await Interview.findOne({ _id: sessionId, userId });
 
-  if (!session) throw new Error("Session not found");
+  if (!session) throw new Error("Session not found or access denied");
   if (session.status === "completed") throw new Error("This interview is already completed.");
 
   const index = session.currentQuestionIndex;
@@ -187,16 +188,16 @@ Format strictly as:
   };
 };
 
-exports.getInterview = async (id) => {
-  const session = await Interview.findById(id);
-  if (!session) throw new Error("Interview not found");
-    return session;
+exports.getInterview = async (id, userId) => {
+  const session = await Interview.findOne({ _id: id, userId });
+  if (!session) throw new Error("Interview not found or access denied");
+  return session;
 };
 
-exports.finishInterview = async (sessionId) => {
-  const session = await Interview.findById(sessionId);
+exports.finishInterview = async (sessionId, userId) => {
+  const session = await Interview.findOne({ _id: sessionId, userId });
 
-  if (!session) throw new Error("Session not found");
+  if (!session) throw new Error("Session not found or access denied");
 
   if (session.report) {
     return {

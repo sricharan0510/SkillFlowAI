@@ -12,12 +12,13 @@ exports.startInterview = async (req, res) => {
       number,
       role,
       difficulty,
-      experience
+      experience,
+      userId: req.user?.id
     });
 
     res.status(201).json(session);
   } catch (error) {
-    console.error("[Controller] Start Interview Error:", error.message);
+    console.error("[Controller] Start Interview Error:", error.message || error);
     res.status(500).json({ error: "Failed to start interview. Please try again." });
   }
 };
@@ -32,12 +33,13 @@ exports.submitAnswer = async (req, res) => {
 
     const result = await interviewService.submitAnswer({
       sessionId,
-      answer
+      answer,
+      userId: req.user?.id
     });
 
     res.status(200).json(result);
   } catch (error) {
-    console.error("[Controller] Submit Answer Error:", error.message);
+    console.error("[Controller] Submit Answer Error:", error.message || error);
     const statusCode = error.message.includes("not found") || error.message.includes("completed") ? 400 : 500;
     res.status(statusCode).json({ error: error.message || "Failed to submit answer." });
   }
@@ -49,10 +51,10 @@ exports.getInterview = async (req, res) => {
 
     if (!id) return res.status(400).json({ error: "Interview ID is required." });
 
-    const session = await interviewService.getInterview(id);
+    const session = await interviewService.getInterview(id, req.user?.id);
     res.status(200).json(session);
   } catch (error) {
-    console.error("[Controller] Get Interview Error:", error.message);
+    console.error("[Controller] Get Interview Error:", error.message || error);
     res.status(404).json({ error: error.message || "Failed to get interview details." });
   }
 };
@@ -65,10 +67,10 @@ exports.finishInterview = async (req, res) => {
       return res.status(400).json({ error: "sessionId is required." });
     }
 
-    const report = await interviewService.finishInterview(sessionId);
+    const report = await interviewService.finishInterview(sessionId, req.user?.id);
     res.status(200).json(report);
   } catch (error) {
-    console.error("[Controller] Finish Interview Error:", error.message);
+    console.error("[Controller] Finish Interview Error:", error.message || error);
     res.status(500).json({ error: error.message || "Failed to generate interview report." });
   }
 };
@@ -76,8 +78,8 @@ exports.finishInterview = async (req, res) => {
 exports.getUserInterviews = async (req, res) => {
   try {
     const Interview = require("../models/interviewModel");
-    // Fetches all interviews, sorted by the newest first
-    const interviews = await Interview.find().sort({ createdAt: -1 });
+    const interviews = await Interview.find({ userId: req.user?.id })
+      .sort({ createdAt: -1 });
     res.status(200).json(interviews);
   } catch (error) {
     console.error("Get History Error:", error);

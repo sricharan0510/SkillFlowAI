@@ -10,15 +10,16 @@ const questionSchema = new mongoose.Schema(
     feedback: { type: String, default: "", trim: true },
     improvement: { type: String, default: "", trim: true }
   },
-  { timestamps: true } 
+  { timestamps: true }
 );
 
 const interviewSchema = new mongoose.Schema(
   {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     role: { type: String, required: true, trim: true, index: true },
     difficulty: {
       type: String,
-      enum: ["easy", "medium", "hard", "expert"],
+      enum: ["basic", "easy", "medium", "hard", "expert"],
       default: "medium"
     },
     experience: { type: String, default: "fresher", trim: true },
