@@ -1,78 +1,36 @@
 const Interview = require("../models/interviewModel");
-const aiService = require("../utils/aiService"); 
+const aiService = require("../utils/aiService");
 
 const parseAIResponse = (text) => {
-  const normalizeJSON = (raw) => {
-    let cleaned = raw.trim();
+  if (!text || !text.trim()) {
+    throw new Error("Empty AI response");
+  }
 
-    if (!cleaned) {
-      throw new Error("Empty AI response");
-    }
+  // Strip markdown code fences
+  let cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
 
-    cleaned = cleaned.replace(/```(?:json)?\n?/, "").replace(/```\s*$/, "").trim();
-    cleaned = cleaned.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+  // Replace smart/curly quotes with straight quotes
+  cleaned = cleaned.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
 
-    const startIndex = Math.min(
-      ...[cleaned.indexOf('{'), cleaned.indexOf('[')].map((idx) => (idx === -1 ? Infinity : idx))
-    );
-    const endIndex = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+  // Extract first JSON array or object
+  const match = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+  if (!match) {
+    throw new Error("No JSON structure found in AI response");
+  }
 
-    if (startIndex === Infinity || endIndex === -1 || endIndex < startIndex) {
-      throw new Error("No JSON structure found in AI response");
-    }
+  let jsonStr = match[0];
 
-    cleaned = cleaned.slice(startIndex, endIndex + 1).trim();
-    cleaned = cleaned.replace(/,\s*(?=[}\]])/g, "");
-
-    let result = "";
-    let inString = false;
-    let escaped = false;
-
-    const nextNonWhitespace = (str, pos) => {
-      for (let i = pos; i < str.length; i += 1) {
-        if (!/\s/.test(str[i])) return str[i];
-      }
-      return null;
-    };
-
-    for (let i = 0; i < cleaned.length; i += 1) {
-      const char = cleaned[i];
-
-      if (char === '"' && !escaped) {
-        if (!inString) {
-          inString = true;
-          result += char;
-        } else {
-          const nextChar = nextNonWhitespace(cleaned, i + 1);
-          const isClosingQuote = nextChar === null || [',', '}', ']'].includes(nextChar);
-          if (isClosingQuote) {
-            inString = false;
-            result += char;
-          } else {
-            result += '\\"';
-          }
-        }
-      } else {
-        result += char;
-        escaped = char === '\\' && !escaped;
-      }
-
-      if (char !== '\\') {
-        escaped = false;
-      }
-    }
-
-    return result;
-  };
+  // Remove trailing commas before ] or }
+  jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
 
   try {
-    const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (!match) throw new Error("No JSON structure found in AI response");
-    const repaired = normalizeJSON(match[0]);
-    return JSON.parse(repaired);
-  } catch (error) {
-    console.error("JSON Parsing failed for AI output:", text);
-    throw new Error("Failed to parse AI response.");
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.error("[parseAIResponse] JSON.parse failed. Raw:", jsonStr.slice(0, 300));
+    throw new Error("Failed to parse AI response: " + err.message);
   }
 };
 

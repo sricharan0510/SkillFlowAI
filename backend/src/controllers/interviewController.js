@@ -15,17 +15,17 @@ exports.startInterview = async (req, res) => {
     }
 
     const session = await interviewService.startInterview({
-      number,
+      number: parseInt(number, 10) || 5,
       role,
       difficulty,
       experience,
-      userId // Safely pass the resolved userId
+      userId
     });
 
     res.status(201).json(session);
   } catch (error) {
     console.error("[Controller] Start Interview Error:", error.message || error);
-    res.status(500).json({ error: "Failed to start interview. Please try again." });
+    res.status(500).json({ error: error.message || "Failed to start interview. Please try again." });
   }
 };
 
@@ -52,7 +52,7 @@ exports.submitAnswer = async (req, res) => {
   } catch (error) {
     console.error("[Controller] Submit Answer Error:", error.message || error);
     const statusCode = error.message.includes("not found") || error.message.includes("completed") ? 400 : 500;
-    res.status(statusCode).json({ error: error.message || "Failed to submit answer." });
+    res.status(statusCode).json({ error: error.message || "Failed to submit answer. Please try again." });
   }
 };
 
